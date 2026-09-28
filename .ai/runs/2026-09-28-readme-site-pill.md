@@ -61,9 +61,9 @@ it in prose.
 
 ### Phase 1: Add the pill to the three READMEs
 
-- [ ] 1.1 Add the website pill to the `README.md` badge row
-- [ ] 1.2 Mirror it in `README.zh-CN.md` with localized alt text
-- [ ] 1.3 Mirror it in `README.zh-TW.md` with localized alt text
+- [x] 1.1 Add the website pill to the `README.md` badge row — 0c82c07a
+- [x] 1.2 Mirror it in `README.zh-CN.md` with localized alt text — 0c82c07a
+- [x] 1.3 Mirror it in `README.zh-TW.md` with localized alt text — 0c82c07a
 
 ### Phase 2: Verify and ship
 
