@@ -67,4 +67,18 @@ it in prose.
 
 ### Phase 2: Verify and ship
 
-- [ ] 2.1 Re-read the diff, confirm hero parity and that the URLs resolve
+- [x] 2.1 Re-read the diff, confirm hero parity and that the URLs resolve — 0c82c07a
+
+Verification evidence for 2.1:
+
+- `https://cezar.run/` → `200`, no redirect; `https://img.shields.io/badge/website-cezar.run-9655FD` → `200 image/svg+xml`.
+- Branch README rendered through GitHub's own markdown pipeline
+  (`gh api "repos/open-mercato/cezar/readme?ref=feat/readme-site-pill" -H "Accept: application/vnd.github.html"`):
+  the pill renders as the first anchor of the badge row, camo-proxied exactly
+  like the existing license/npm badges, and the camo URL itself returns
+  `200 image/svg+xml`.
+- Diff is 6 added lines across the 3 READMEs and nothing else; the three hero
+  blocks stay structurally identical.
+- No test reads the repository README — every `README.md` occurrence under
+  `packages/**/*.test.*` is a string literal or diff fixture — so the code gate
+  cannot be affected by this change.
