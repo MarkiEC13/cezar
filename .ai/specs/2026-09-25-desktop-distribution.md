@@ -114,7 +114,7 @@ old app. `~/.cezar` (versions, settings, window geometry) is untouched by that.
 | Add `TAURI_SIGNING_PRIVATE_KEY` (the file's contents) as a repository secret | GitHub → Settings → Secrets | without it the workflow builds installers but no `desktop-latest.json`, so shells never see a new version |
 | Join the Apple Developer Program (99 USD/year), create a Developer ID Application certificate, export as base64 `.p12` | developer.apple.com | without it the build is signed AD-HOC (`signingIdentity: "-"`), which seals the bundle: a downloaded copy gets "could not verify" and Open Anyway in System Settings. A bundle that is not sealed at all is what macOS calls "damaged" — the first 0.1.1 build shipped that way. Notarization (no prompt at all) still needs the certificate |
 | Add `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific), `APPLE_TEAM_ID` | GitHub secrets | tauri-action signs and notarizes with these; all-or-nothing |
-| Windows: Azure Trusted Signing (or an EV cert), wired through `bundle.windows.signCommand` | later | SmartScreen otherwise warns on every install |
+| Windows: apply to SignPath Foundation (signpath.org), then set `SIGNPATH_API_TOKEN` and `SIGNPATH_ORGANIZATION_ID` and install the SignPath GitHub App on the repository | after approval | SmartScreen otherwise warns on every install |
 | Cut `desktop-v0.1.0` and check the workflow summary shows no "UNSIGNED" warning | GitHub Actions | the first real run will surface platform-specific matrix issues |
 | Landing page + Homebrew tap pointing at the stable asset URLs | after the first green release | see "Downstream pointers" |
 
