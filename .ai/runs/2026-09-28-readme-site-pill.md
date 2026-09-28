@@ -84,3 +84,20 @@ Verification evidence for 2.1:
 - No test reads the repository README — every `README.md` occurrence under
   `packages/**/*.test.*` is a string literal or diff fixture — so the code gate
   cannot be affected by this change.
+
+## Outcome
+
+CI on `cdc557d6` came back fully green, including `Unit, build, E2E, and
+package` — the job that runs `validation.commands`. The docs-only local
+exemption recorded under Risks is therefore backed by a real full-gate run
+rather than by the inference alone.
+
+The automated review pass found no blockers and no majors and applied no
+autofixes. One nit was raised and declined with a reason: both translated
+READMEs still carry the stale `本文译自 README.md @ 33aee0ee` sync marker, which
+predates this change (untouched since #1086; #1130 and #1131 left it too) —
+housekeeping for its own PR.
+
+The one thing this run could not do is approve the PR: GitHub refuses a
+self-approval from the authoring account, so the review is recorded as a review
+comment and the `main` ruleset's one-approval requirement is still outstanding.
