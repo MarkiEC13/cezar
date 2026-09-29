@@ -18,8 +18,8 @@ Ensure `CEZ:DONE` and valid `CEZ:ASK` markers retain their turn-end meaning when
 
 ### Phase 1: Marker detection
 
-- [ ] 1.1 Use the shared normalized turn text for DONE detection in both turn-end handlers and ASK parsing/compaction classification.
-- [ ] 1.2 Add regression tests for trailing PR/ISSUE/TITLE markers and marker false positives.
+- [x] 1.1 Use the shared normalized turn text for DONE detection in both turn-end handlers and ASK parsing/compaction classification. — implementation pending commit
+- [x] 1.2 Add regression tests for trailing PR/ISSUE/TITLE markers and marker false positives. — implementation pending commit
 
 ### Phase 2: Verification and handoff
 
