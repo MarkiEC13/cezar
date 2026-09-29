@@ -118,7 +118,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
   });
 
   it.each([
-    ['CEZ:ASK', '{"questions":[{"header":"Pick","question":"Which?","options":[{"label":"A"},{"label":"B"}]}]}'],
+    ['CEZ:ASK ', '{"questions":[{"header":"Pick","question":"Which?","options":[{"label":"A"},{"label":"B"}]}]}'],
     ['CEZ:D', 'ONE'],
     ['CEZ:MONITOR', 'ING'],
   ])('keeps control markers adjacent when Pi splits message content parts (%s)', async (left, right) => {
@@ -129,7 +129,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
     );
     const text = events.find((event): event is Extract<AgentEvent, { type: 'text' }> => event.type === 'text')?.text;
     expect(text).toBe(`Progress.\n\n${left}${right}`);
-    if (left === 'CEZ:ASK') expect(parseAskMarkerResult(text!).kind).toBe('valid');
+    if (left.startsWith('CEZ:ASK')) expect(parseAskMarkerResult(text!).kind).toBe('valid');
   });
 
   it('coalesces token prose across an interleaved tool event while v2 remains delta-streamed', async () => {
