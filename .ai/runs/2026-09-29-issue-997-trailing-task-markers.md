@@ -28,6 +28,8 @@ Ensure `CEZ:DONE` and valid `CEZ:ASK` markers retain their turn-end meaning when
 
 Gate update: `npm run typecheck` passed; full `npm test` passed 8401/8403 with the two known environment-only failures in `agent-profile-wiring.test.ts` and `system-prompt.test.ts` (same failures reproduced by the parent on fresh base).
 
+Review: local `om-auto-review-pr` workflow found no blocker/major findings. Formal GitHub self-approval is unavailable; independent review remains required.
+
 ## Risks
 
 DONE closes a session and ASK creates a user-facing card, so widening either must be a strict superset of the existing end-anchored behavior. Only complete trailing marker lines are stripped; marker-like prose or references followed by later commentary must remain non-matches.
