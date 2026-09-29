@@ -18,6 +18,6 @@ Risks: Pi's RPC message snapshots can be cumulative while text deltas are increm
 
 ### Phase 1: Reproduce and repair
 
-- [ ] 1.1 Add regression coverage for marker assembly and interleaved tool events
-- [ ] 1.2 Implement the minimal Pi seam fix
+- [x] 1.1 Add regression coverage for marker assembly and interleaved tool events
+- [x] 1.2 Implement the minimal Pi seam fix
 - [ ] 1.3 Validate focused and full gates

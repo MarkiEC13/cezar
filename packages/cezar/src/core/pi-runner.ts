@@ -193,7 +193,10 @@ export class PiRunner implements AgentRunner {
               textCoalescer.append(undefined, update.delta);
             }
           } else if (value.type === 'message_end' && isRecord(value.message) && value.message.role === 'assistant') {
-            textCoalescer.complete(undefined, contentText(value.message.content));
+            // Pi's text parts are incremental content segments. They are not complete
+            // assistant blocks, so keep their bytes adjacent: a control marker can be
+            // split at a content boundary just as it can across text_delta frames.
+            textCoalescer.complete(undefined, assistantMessageText(value.message.content));
             const usage = usageValues(value.message.usage);
             if (usage) {
               tokensUsed += usage.weighted;
@@ -348,6 +351,15 @@ function contentText(value: unknown): string | undefined {
     .map((part) => (isRecord(part) && part.type === 'text' ? string(part.text) : undefined))
     .filter((part): part is string => part !== undefined);
   return text.length > 0 ? text.join('\n') : undefined;
+}
+
+function assistantMessageText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (!Array.isArray(value)) return undefined;
+  const text = value
+    .map((part) => (isRecord(part) && part.type === 'text' ? string(part.text) : undefined))
+    .filter((part): part is string => part !== undefined);
+  return text.length > 0 ? text.join('') : undefined;
 }
 
 function rpcError(value: Record<string, unknown>): string {
