@@ -13,7 +13,7 @@ Scope: `packages/cezar/src/server-install/platforms/macosx-ngrok.ts` and its foc
 
 ### Phase 2: Validation and handoff
 
-- [ ] 2.1 Run targeted tests, configured validation gate, and review the final diff.
+- [x] 2.1 Run targeted tests, configured validation gate, and review the final diff. — pending
 - [ ] 2.2 Open and finalize the issue PR with evidence and review status.
 
 ## Risks
@@ -31,5 +31,5 @@ Scope: `packages/cezar/src/server-install/platforms/macosx-ngrok.ts` and its foc
 
 ### Phase 2: Validation and handoff
 
-- [ ] 2.1 Run targeted tests, configured validation gate, and review the final diff.
+- [x] 2.1 Run targeted tests, configured validation gate, and review the final diff. — pending
 - [ ] 2.2 Open and finalize the issue PR with evidence and review status.
