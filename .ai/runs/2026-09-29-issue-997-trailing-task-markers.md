@@ -34,6 +34,8 @@ DONE closes a session and ASK creates a user-facing card, so widening either mus
 
 ## Progress
 
+PR: #1154
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Marker detection
@@ -44,4 +46,4 @@ DONE closes a session and ASK creates a user-facing card, so widening either mus
 ### Phase 2: Verification and handoff
 
 - [ ] 2.1 Prove the regression fails on the base, then passes with the fix.
-- [ ] 2.2 Run the configured validation gate, review the PR, and record remaining environment limits.
+- [x] 2.2 Run the configured validation gate, review the PR, and record remaining environment limits. — c3606071
