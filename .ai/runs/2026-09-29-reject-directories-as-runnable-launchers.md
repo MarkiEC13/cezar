@@ -16,7 +16,7 @@ Non-goals: No changes to API contracts, launcher behavior outside these probes, 
 ### Phase 2: Validation and delivery
 
 - [x] 2.1 Run the focused regression red before the fix and green after it, then run the configured validation gate. — 7611ff78
-- [ ] 2.2 Commit, push, open and finalize the issue PR with review evidence.
+- [x] 2.2 Commit, push, open and finalize the issue PR with review evidence. — pending parent independent review (PR #1153)
 
 Risks: Filesystem probes must continue to follow executable symlinks and must not broaden the set of directly spawned Windows suffixes. The configured package dependency tree will be installed locally with `npm ci` if needed.
 
@@ -32,4 +32,4 @@ Risks: Filesystem probes must continue to follow executable symlinks and must no
 ### Phase 2: Validation and delivery
 
 - [x] 2.1 Run the focused regression red before the fix and green after it, then run the configured validation gate. — 7611ff78
-- [ ] 2.2 Commit, push, open and finalize the issue PR with review evidence.
+- [x] 2.2 Commit, push, open and finalize the issue PR with review evidence. — pending parent independent review (PR #1153)
