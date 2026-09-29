@@ -8,8 +8,8 @@ Scope: `packages/cezar/src/server-install/platforms/macosx-ngrok.ts` and its foc
 
 ### Phase 1: Regression and fix
 
-- [ ] 1.1 Add deterministic macOS redeploy tests for non-zero kickstart and unchanged cockpit process.
-- [ ] 1.2 Throw `StepAborted` on failed kickstart and verify launchd process replacement when identity data is available.
+- [x] 1.1 Add deterministic macOS redeploy tests for non-zero kickstart and unchanged cockpit process. — ff72fe99
+- [x] 1.2 Throw `StepAborted` on failed kickstart and verify launchd process replacement when identity data is available. — ff72fe99
 
 ### Phase 2: Validation and handoff
 
@@ -26,8 +26,8 @@ Scope: `packages/cezar/src/server-install/platforms/macosx-ngrok.ts` and its foc
 
 ### Phase 1: Regression and fix
 
-- [ ] 1.1 Add deterministic macOS redeploy tests for non-zero kickstart and unchanged cockpit process.
-- [ ] 1.2 Throw `StepAborted` on failed kickstart and verify launchd process replacement when identity data is available.
+- [x] 1.1 Add deterministic macOS redeploy tests for non-zero kickstart and unchanged cockpit process. — ff72fe99
+- [x] 1.2 Throw `StepAborted` on failed kickstart and verify launchd process replacement when identity data is available. — ff72fe99
 
 ### Phase 2: Validation and handoff
 
