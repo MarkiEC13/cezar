@@ -10,8 +10,8 @@ Non-goals: No changes to API contracts, launcher behavior outside these probes, 
 
 ### Phase 1: Regression and shared guard
 
-- [ ] 1.1 Add a hermetic regression test covering PATH directories, real executable files, symlinks, and Windows suffix behavior.
-- [ ] 1.2 Reuse the existing regular-file executable helper from Claude resolution in `resolveOnPath`.
+- [x] 1.1 Add a hermetic regression test covering PATH directories, real executable files, symlinks, and Windows suffix behavior. — 25f22d5f
+- [x] 1.2 Reuse the existing regular-file executable helper from Claude resolution in `resolveOnPath`. — 25f22d5f
 
 ### Phase 2: Validation and delivery
 
@@ -26,8 +26,8 @@ Risks: Filesystem probes must continue to follow executable symlinks and must no
 
 ### Phase 1: Regression and shared guard
 
-- [ ] 1.1 Add a hermetic regression test covering PATH directories, real executable files, symlinks, and Windows suffix behavior.
-- [ ] 1.2 Reuse the existing regular-file executable helper from Claude resolution in `resolveOnPath`.
+- [x] 1.1 Add a hermetic regression test covering PATH directories, real executable files, symlinks, and Windows suffix behavior. — 25f22d5f
+- [x] 1.2 Reuse the existing regular-file executable helper from Claude resolution in `resolveOnPath`. — 25f22d5f
 
 ### Phase 2: Validation and delivery
 
