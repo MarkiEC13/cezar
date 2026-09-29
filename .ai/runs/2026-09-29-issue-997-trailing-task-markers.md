@@ -18,13 +18,15 @@ Ensure `CEZ:DONE` and valid `CEZ:ASK` markers retain their turn-end meaning when
 
 ### Phase 1: Marker detection
 
-- [x] 1.1 Use the shared normalized turn text for DONE detection in both turn-end handlers and ASK parsing/compaction classification. — implementation pending commit
-- [x] 1.2 Add regression tests for trailing PR/ISSUE/TITLE markers and marker false positives. — implementation pending commit
+- [x] 1.1 Use the shared normalized turn text for DONE detection in both turn-end handlers and ASK parsing/compaction classification. — 7e293b63
+- [x] 1.2 Add regression tests for trailing PR/ISSUE/TITLE markers and marker false positives. — 7e293b63
 
 ### Phase 2: Verification and handoff
 
-- [ ] 2.1 Prove the regression fails on the base, then passes with the fix.
+- [x] 2.1 Prove the regression fails on the base, then passes with the fix. — 7e293b63
 - [ ] 2.2 Run the configured validation gate, review the PR, and record remaining environment limits.
+
+Gate update: `npm run typecheck` passed; full `npm test` passed 8401/8403 with the two known environment-only failures in `agent-profile-wiring.test.ts` and `system-prompt.test.ts` (same failures reproduced by the parent on fresh base).
 
 ## Risks
 
