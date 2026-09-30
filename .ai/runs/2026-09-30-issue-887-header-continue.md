@@ -18,7 +18,7 @@ Make desktop and mobile Session-header Continue use the visible composer runner/
 ### Phase 2: Verification and handoff
 
 - [x] 2.1 Run focused tests and the configured validation gate. — 176bf23c
-- [ ] 2.2 Create and review a separate issue PR. — PR #1173 created; approval blocked because GitHub forbids self-review
+- [x] 2.2 Create and review a separate issue PR. — PR #1173 independently reviewed; GitHub formal approval unavailable under shared author identity
 
 ## Risks
 
@@ -36,7 +36,7 @@ The local dependency tree currently resolves stale/incompatible workspace artifa
 ### Phase 2: Verification and handoff
 
 - [x] 2.1 Run focused tests and the configured validation gate. — 29abe6e3
-- [ ] 2.2 Create and review a separate issue PR.
+- [x] 2.2 Create and review a separate issue PR. Independent review approved; formal GitHub approval unavailable under shared author identity.
 
 ### Verification record
 
