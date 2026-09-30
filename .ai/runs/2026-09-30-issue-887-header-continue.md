@@ -18,7 +18,7 @@ Make desktop and mobile Session-header Continue use the visible composer runner/
 ### Phase 2: Verification and handoff
 
 - [x] 2.1 Run focused tests and the configured validation gate. — 176bf23c
-- [ ] 2.2 Create and review a separate issue PR.
+- [ ] 2.2 Create and review a separate issue PR. — PR #1173 created; approval blocked because GitHub forbids self-review
 
 ## Risks
 
