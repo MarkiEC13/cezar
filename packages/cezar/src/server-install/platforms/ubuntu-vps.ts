@@ -634,7 +634,17 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export async function nginxConfigTestFailure(ctx: InstallContext): Promise<VerifyFailure | undefined> {
   const result = await ctx.runner.capture('nginx', ['-t']);
   const output = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n');
-  if (result.code === 0 || !output || result.code === 127 || /command not found/i.test(output)) return undefined;
+  // `nginx -t` also reports operational failures (for example, an unprivileged
+  // probe cannot open a root-only certificate or log). Only classify explicit
+  // syntax/configuration diagnostics as terminal; certbot and other transient
+  // failures must keep the normal retry/skip path.
+  const parseFailure =
+    /unknown directive|unexpected (?:end|\S+)|directive .*not allowed|invalid (?:number of arguments|parameter)|duplicate /i.test(
+      output,
+    );
+  if (result.code === 0 || !output || result.code === 127 || /command not found/i.test(output) || !parseFailure) {
+    return undefined;
+  }
   return {
     retryable: false,
     message:

@@ -86,6 +86,24 @@ describe('nginx configuration diagnostics', () => {
     );
     expect(result).toBeUndefined();
   });
+
+  it('leaves permission and operational nginx test failures retryable', async () => {
+    const result = await nginxConfigTestFailure(
+      ctxWith({
+        runner: {
+          capture: async () => ({
+            code: 1,
+            stdout: '',
+            stderr:
+              'nginx: [emerg] cannot load certificate "/etc/letsencrypt/live/example/fullchain.pem": BIO_new_file() failed (13: Permission denied)\n' +
+              'nginx: configuration file /etc/nginx/nginx.conf test failed',
+          }),
+          interactive: async () => 0,
+        },
+      }),
+    );
+    expect(result).toBeUndefined();
+  });
 });
 
 describe('ubuntu-vps ssl step', () => {
