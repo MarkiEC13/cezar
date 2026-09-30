@@ -15,7 +15,7 @@ Non-goals: nginx/vhost generation changes, system installation, production nginx
 
 ### Phase 2: Verify and ship
 
-- [ ] 2.1 Run targeted and full validation, inspect the diff, commit and push the fix.
+- [x] 2.1 Run targeted and full validation, inspect the diff, commit and push the fix.
 - [ ] 2.2 Run the authoritative PR review and address any findings.
 
 ## Risks
@@ -33,5 +33,5 @@ Non-goals: nginx/vhost generation changes, system installation, production nginx
 
 ### Phase 2: Verify and ship
 
-- [ ] 2.1 Run targeted and full validation, inspect the diff, commit and push.
+- [x] 2.1 Run targeted and full validation, inspect the diff, commit and push.
 - [ ] 2.2 Run the authoritative PR review and address any findings.
