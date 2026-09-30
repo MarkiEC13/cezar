@@ -10,8 +10,8 @@ Non-goals: nginx/vhost generation changes, system installation, production nginx
 
 ### Phase 1: Diagnose and fix
 
-- [x] 1.1 Add a terminal verification-diagnostic seam to `sudoStep` and use it for nginx parse failures in the SSL step.
-- [x] 1.2 Add regression tests for diagnostic output/terminal behavior and preserve transient retry behavior.
+- [x] 1.1 Add a terminal verification-diagnostic seam to `sudoStep` and use it for nginx parse failures in the SSL step. — e37f0c4a
+- [x] 1.2 Add regression tests for diagnostic output/terminal behavior and preserve transient retry behavior. — e37f0c4a
 
 ### Phase 2: Verify and ship
 
