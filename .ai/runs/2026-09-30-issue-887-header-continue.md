@@ -12,8 +12,8 @@ Make desktop and mobile Session-header Continue use the visible composer runner/
 
 ### Phase 1: Shared Session continuation
 
-- [ ] 1.1 Route both header Continue controls through the Session composer continuation action.
-- [ ] 1.2 Add regression coverage for desktop and mobile controls and preserve standalone behavior.
+- [x] 1.1 Route both header Continue controls through the Session composer continuation action. — pending commit
+- [x] 1.2 Add regression coverage for desktop and mobile controls and preserve standalone behavior. — pending commit
 
 ### Phase 2: Verification and handoff
 
