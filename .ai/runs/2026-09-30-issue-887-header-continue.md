@@ -30,10 +30,18 @@ The local dependency tree currently resolves stale/incompatible workspace artifa
 
 ### Phase 1: Shared Session continuation
 
-- [ ] 1.1 Route both header Continue controls through the Session composer continuation action.
-- [ ] 1.2 Add regression coverage for desktop and mobile controls and preserve standalone behavior.
+- [x] 1.1 Route both header Continue controls through the Session composer continuation action. — a40719ca
+- [x] 1.2 Add regression coverage for desktop and mobile controls and preserve standalone behavior. — a40719ca
 
 ### Phase 2: Verification and handoff
 
-- [ ] 2.1 Run focused tests and the configured validation gate.
+- [x] 2.1 Run focused tests and the configured validation gate. — 29abe6e3
 - [ ] 2.2 Create and review a separate issue PR.
+
+### Verification record
+
+- Focused Vitest: 3 files, 185 passed.
+- `TMPDIR=/tmp/cezar-1173-... npm run typecheck`: passed.
+- `TMPDIR=/tmp/cezar-1173-... npm test`: 8,408 passed, 2 baseline/environment failures in `src/workflows/agent-profile-wiring.test.ts` and `src/workflows/system-prompt.test.ts`; no changed-file failures. The latter also reports the generated temp project lacks `.ai/cezar/runs.json`.
+- `npm run test:unit`: 36 passed; `npm run build`: passed (`check:pack` 687 files); `npm run test:package`: 17 passed.
+- Browser QA and independent review remain before this PR can leave `in-progress`/draft.
