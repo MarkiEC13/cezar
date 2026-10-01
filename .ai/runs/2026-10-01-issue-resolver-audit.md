@@ -38,7 +38,13 @@ Codex discovery unavailable; request exact gpt-5.6-luna. Historical issues may a
 - [ ] 1.3 Resolve bookmark unavailable runner bug #874
 - [ ] 1.4 Bound no-subagent context history #1204
 
+- [ ] 1.5 Replace already-fixed #926 with Pi model discovery #893
+
 ### Phase 2: Verification
 
 - [ ] 2.1 Validate worker reports and PR evidence
 - [ ] 2.2 Obtain final independent review verdict
+
+## Audit update
+
+Worker #926 reports existing queued attachment solution, closed plan-only PR #1209; parent rerunning evidence. #893 remains open/unclaimed with no covering PR, selected as replacement to deliver five actual bug fixes. Fifth worker owns Pi catalog discovery/server models route/web model hooks, excluding Pi stream files, bookmarks and event-history. Bookmark PR #1210 remains draft while dependency setup and validation are completed.
