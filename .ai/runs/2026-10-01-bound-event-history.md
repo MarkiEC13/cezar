@@ -30,6 +30,8 @@ tests guard the intentional fan-out behavior.
 
 ## Progress
 
+PR: #1207
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Fix and regression coverage
@@ -40,4 +42,4 @@ tests guard the intentional fan-out behavior.
 ### Phase 2: Validation and review
 
 - [x] 2.1 Run the configured validation gate — typecheck, unit (36/36), build, and package (17/17) passed; full `npm test` had 9 unrelated environment-sensitive failures (8,466/8,475 passed)
-- [ ] 2.2 Obtain the authoritative PR review and address findings
+- [ ] 2.2 Obtain the authoritative independent PR review; self-review found no code findings, but GitHub disallows author approval
