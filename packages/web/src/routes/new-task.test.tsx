@@ -1564,7 +1564,7 @@ describe('bookmarklet auto-start', () => {
     expect(requests.some((r) => r.method === 'PUT' && r.url === '/api/v1/ui-state')).toBe(false)
   })
 
-  it('uses an explicit connected fallback when the saved server default is disconnected', async () => {
+  it('keeps the prefilled composer when the saved server default is disconnected', async () => {
     serve({
       providerStatus: {
         providers: [
@@ -1576,15 +1576,29 @@ describe('bookmarklet auto-start', () => {
       },
     })
     renderNewTask('/new?skill=deploy&ref=hello&auto=1&key=k-real')
-    await waitFor(() => expect(screen.queryByTestId('elsewhere')).not.toBeNull())
+    await waitFor(() => expect(textarea().value).toBe('hello'))
 
-    expect(runsPosted().map((request) => request.body)).toEqual([
-      {
-        task: 'hello',
-        steps: [{ id: 'task', name: 'deploy', skill: 'deploy', prompt: '{{task}}' }],
-        runner: 'codex',
+    expect(runsPosted()).toHaveLength(0)
+    expect(screen.queryByTestId('elsewhere')).toBeNull()
+  })
+
+  it('keeps the prefilled composer when the saved server default is disabled', async () => {
+    serve({
+      config: { defaultRunner: 'claude' },
+      providerStatus: {
+        providers: [
+          { provider: 'claude', status: 'connected', enabled: false },
+          { provider: 'codex', status: 'connected', enabled: true },
+          { provider: 'opencode', status: 'not-installed', enabled: true },
+          { provider: 'cursor', status: 'not-installed', enabled: true },
+        ],
       },
-    ])
+    })
+    renderNewTask('/new?skill=deploy&ref=hello&auto=1&key=k-real')
+    await waitFor(() => expect(textarea().value).toBe('hello'))
+
+    expect(runsPosted()).toHaveLength(0)
+    expect(screen.queryByTestId('elsewhere')).toBeNull()
   })
 
   it('keeps the prefilled composer disabled and does not POST when none are connected', async () => {
