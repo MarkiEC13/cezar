@@ -8,8 +8,8 @@ Scope: `packages/cezar/src/core/pi-runner.ts`, its focused protocol tests, and t
 
 ### Phase 1: Reproduce and fix Pi snapshot assembly
 
-- [ ] 1.1 Add regression coverage for content-part marker boundaries and tool-interleaved text while retaining v2 deltas
-- [ ] 1.2 Concatenate Pi assistant text parts for v1 snapshots without changing tool/result or v2 mapping behavior
+- [x] 1.1 Add regression coverage for content-part marker boundaries and tool-interleaved text while retaining v2 deltas — 54abec39
+- [x] 1.2 Concatenate Pi assistant text parts for v1 snapshots without changing tool/result or v2 mapping behavior — 54abec39
 
 ### Phase 2: Validate and review
 
