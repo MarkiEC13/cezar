@@ -20,8 +20,8 @@ Risks: Pi CLI output is human-readable and may change; strict parsing and unavai
 
 ### Phase 1: Pi discovery
 
-- [ ] 1.1 Add bounded Pi discovery adapter and parser
-- [ ] 1.2 Register Pi across contract, server and web picker
+- [x] 1.1 Add bounded Pi discovery adapter and parser — 40eca897
+- [x] 1.2 Register Pi across contract, server and web picker — 40eca897
 
 ### Phase 2: Verification
 
