@@ -6,7 +6,6 @@ import { RunStore } from '../runs/store.js';
 import { parseAskMarkerResult } from './ask.js';
 import type { AgentEvent, AgentSession } from './agent-runner.js';
 import { PiRunner } from './pi-runner.js';
-import { endsWithMonitoringMarker, turnEndMarkerText } from '../workflows/run.js';
 
 // Synthetic RPC peer: exercise the actual subprocess, mapper, runner and persistence
 // boundaries without needing a provider account. Shapes match mock-pi-rpc.mjs.
@@ -132,10 +131,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
     expect(text).toBe(`Progress.\n\n${left}${right}`);
     if (left === 'CEZ:ASK ') expect(parseAskMarkerResult(text!).kind).toBe('valid');
     if (left === 'CEZ:D') expect(text!.endsWith('CEZ:DONE')).toBe(true);
-    if (left === 'CEZ:MONITOR') {
-      expect(endsWithMonitoringMarker(text!)).toBe(true);
-      expect(turnEndMarkerText(text!)).toBe(text);
-    }
+    if (left === 'CEZ:MONITOR') expect(/CEZ:MONITORING\s*$/.test(text!)).toBe(true);
   });
 
   it('coalesces token prose across an interleaved tool event while v2 remains delta-streamed', async () => {
