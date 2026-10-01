@@ -319,7 +319,8 @@ describe('live cursor replay and compact context', () => {
       ['turn.started', 'turn.completed', 'user-message', 'session.ended', 'session.error'].includes(type),
     );
     expect(itemEvents.map(({ seq }) => seq)).toEqual([2, 4, 4_002]);
-    expect(boundaryEvents).toHaveLength(100);
+    expect(boundaryEvents).toHaveLength(101);
+    expect(boundaryEvents[0]?.seq).toBe(1);
   });
 
   it('preserves the current plan and lets a settled earlier fan-out bound carry-over', async () => {
