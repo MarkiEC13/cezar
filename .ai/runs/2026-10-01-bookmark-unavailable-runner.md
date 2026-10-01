@@ -28,6 +28,8 @@ The provider status cache may be stale; this change follows the current cockpit 
 
 ## Progress
 
+PR: #1210
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Guard bookmark autostart
@@ -38,3 +40,11 @@ The provider status cache may be stale; this change follows the current cockpit 
 ### Phase 2: Verify and hand off
 
 - [x] 2.1 Run targeted and configured validation, review the diff, and report limitations. — 85c34513
+
+## Final verification
+
+Independent reviewer approved code head `8f3f473cd4ee9b596a45623838aa426ee40141b0`: https://github.com/open-mercato/cezar/pull/1210#issuecomment-5922910896.
+
+Browser QA blocker resolved with cached libraries and TMPDIR=/tmp. Inline evidence: https://github.com/open-mercato/cezar/pull/1210#issuecomment-5922915264. Exact code-head CI green; genuine red/green proof and parent 138 tests passed.
+
+This final documentation update supersedes earlier pending review/browser statements without changing implementation. No fix branch was merged; applicable QA/CI still gate merge.
