@@ -18,9 +18,11 @@ Four disjoint workers: Pi runner/tests; queued attachment endpoint/tests; bookma
 ## Non-goals
 No base merges, no duplicate fixes for covered issues, no unrelated features, no invented budget. No fallback to another model without reporting requested model unavailability.
 
-## Blocker
+## Initial blocker (resolved on continuation)
 
 Dispatch blocked: node "$CEZ_BIN" task create returned "dispatch refused — unknown project: cezar". CEZ_API_URL=http://127.0.0.1:4321 serves a CEZ_DRY_RUN=1 cockpit whose bootProject is efd37eca-072b-4073-b755-b5f6f2a85325 (missing worktree), not project cezar. No child started, no model availability verified, no fixes/tests/PRs created. Final independent review cannot be dispatched through this endpoint. Do not bypass refusal. Correct task endpoint injection upstream, then resume the four worker assignments; related existing issue #1000 / PR #1124. All six Progress steps remain pending.
+
+Verified owning cockpit at http://172.17.0.1:4321 through GET health and GET /api/v1/p/cezar/runs/0ee3a293-98b1-4665-ab10-f482b97724e2: matching project, running task and branch. Retry dispatch with per-command CEZ_API_URL correction; no server settings changed. Refreshed PR audit: all five remain uncovered.
 
 ## Risks
 Codex discovery unavailable; request exact gpt-5.6-luna. Historical issues may already be fixed without closure; workers must prove defect. Child scopes must remain disjoint. Shared full validation can be resource intensive.
