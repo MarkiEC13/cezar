@@ -14,7 +14,7 @@ episode selection semantics.
 
 ### Phase 1: Fix and regression coverage
 
-- [x] 1.1 Add an independent bounded boundary window and regression tests for long no-root and mixed-root histories — f14dd6da
+- [x] 1.1 Add an independent bounded boundary window and regression tests for long no-root and mixed-root histories — f14dd6da, 4d99d6b4
 - [x] 1.2 Run focused history tests and inspect the diff — 15/15 passed; baseline red with 4,000 and 2,001 retained boundaries
 
 ### Phase 2: Validation and review
