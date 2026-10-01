@@ -15,12 +15,12 @@ Non-goals: changing ordinary composer fallback selection, bookmarklet URL gramma
 
 ### Phase 1: Guard bookmark autostart
 
-- [ ] 1.1 Require the configured default runner to remain the resolved runner before bookmark autostart.
-- [ ] 1.2 Add regression coverage for disconnected and disabled defaults while preserving valid autostart coverage.
+- [x] 1.1 Require the configured default runner to remain the resolved runner before bookmark autostart. — 461549a6
+- [x] 1.2 Add regression coverage for disconnected and disabled defaults while preserving valid autostart coverage. — 461549a6
 
 ### Phase 2: Verify and hand off
 
-- [ ] 2.1 Run targeted and configured validation, review the diff, and report limitations.
+- [x] 2.1 Run targeted and configured validation, review the diff, and report limitations. — pending external dependency repair
 
 ## Risks
 
@@ -32,9 +32,9 @@ The provider status cache may be stale; this change follows the current cockpit 
 
 ### Phase 1: Guard bookmark autostart
 
-- [ ] 1.1 Require the configured default runner to remain the resolved runner before bookmark autostart.
-- [ ] 1.2 Add regression coverage for disconnected and disabled defaults while preserving valid autostart coverage.
+- [x] 1.1 Require the configured default runner to remain the resolved runner before bookmark autostart. — 461549a6
+- [x] 1.2 Add regression coverage for disconnected and disabled defaults while preserving valid autostart coverage. — 461549a6
 
 ### Phase 2: Verify and hand off
 
-- [ ] 2.1 Run targeted and configured validation, review the diff, and report limitations.
+- [x] 2.1 Run targeted and configured validation, review the diff, and report limitations. — pending external dependency repair
