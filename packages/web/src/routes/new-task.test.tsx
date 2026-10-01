@@ -1517,7 +1517,7 @@ describe('bookmarklet auto-start', () => {
     ])
   })
 
-  it('waits for project config and sends a connected fallback when that default is unavailable', async () => {
+  it('waits for project config and keeps the form when that default is unavailable', async () => {
     const delayedConfig = deferredJson<ConfigResponse>()
     const delayedProviders = deferredJson<ProviderStatusResponse>()
     serve({ config: delayedConfig.fetch, providerStatus: delayedProviders.fetch })
@@ -1538,14 +1538,9 @@ describe('bookmarklet auto-start', () => {
     expect(runsPosted()).toHaveLength(0)
 
     delayedConfig.release({ ...CONFIG, defaultRunner: 'codex' })
-    await waitFor(() => expect(screen.queryByTestId('elsewhere')).not.toBeNull())
-    expect(runsPosted().map((request) => request.body)).toEqual([
-      {
-        task: 'hello',
-        steps: [{ id: 'task', name: 'deploy', skill: 'deploy', prompt: '{{task}}' }],
-        runner: 'claude',
-      },
-    ])
+    await waitFor(() => expect(textarea().value).toBe('hello'))
+    expect(runsPosted()).toHaveLength(0)
+    expect(screen.queryByTestId('elsewhere')).toBeNull()
   })
 
   it('valid key + auto=1 + skill/ref → starts unattended with the exact legacy body, then the thread', async () => {
