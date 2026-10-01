@@ -13,6 +13,7 @@ import {
 
 const READ_CHUNK_BYTES = 64 * 1024;
 const MAX_CURSOR_BYTES = 2_048;
+const MAX_CONTEXT_BOUNDARIES = RUN_HISTORY_PAGE_ITEMS;
 
 const pageCursorSchema = z.object({
   v: z.literal(1),
@@ -495,6 +496,10 @@ export async function deriveRunContextEvents(filePath: string): Promise<RunHisto
   const roots = new Map<string, ContextItem>();
   const children = new Map<string, ContextItem>();
   const rootsByTurn = new Map<number, Set<string>>();
+  const retainBoundaryWindow = () => {
+    const excess = boundaries.length - MAX_CONTEXT_BOUNDARIES;
+    if (excess > 0) boundaries.splice(0, excess);
+  };
 
   const itemIdentity = (event: RunHistoryEvent, id: string) => `${event.stepId ?? ''}:${id}`;
   const pruneSettledHistory = () => {
@@ -547,6 +552,7 @@ export async function deriveRunContextEvents(filePath: string): Promise<RunHisto
       if (event.type === 'user-message' || event.type === 'turn.started') {
         turn += 1;
         boundaries.push(event);
+        retainBoundaryWindow();
         pruneSettledHistory();
         continue;
       }
@@ -556,6 +562,7 @@ export async function deriveRunContextEvents(filePath: string): Promise<RunHisto
         event.type === 'session.error'
       ) {
         boundaries.push(event);
+        retainBoundaryWindow();
         continue;
       }
       if (event.type === 'item.started' || event.type === 'item.updated' || event.type === 'item.completed') {
