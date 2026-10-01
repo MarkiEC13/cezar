@@ -25,4 +25,4 @@ Risks: Pi CLI output is human-readable and may change; strict parsing and unavai
 
 ### Phase 2: Verification
 
-- [ ] 2.1 Run validation, review and QA evidence
+- [x] 2.1 Run validation, review and QA evidence — 7e40fc8d
