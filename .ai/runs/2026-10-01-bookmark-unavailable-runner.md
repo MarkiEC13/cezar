@@ -20,7 +20,7 @@ Non-goals: changing ordinary composer fallback selection, bookmarklet URL gramma
 
 ### Phase 2: Verify and hand off
 
-- [x] 2.1 Run targeted and configured validation, review the diff, and report limitations. — pending final review
+- [x] 2.1 Run targeted and configured validation, review the diff, and report limitations. — focused 127/127; typecheck/build/package/unit green; full suite 10 unrelated failures; browser unavailable
 
 ## Risks
 
