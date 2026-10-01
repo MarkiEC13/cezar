@@ -16,6 +16,8 @@ Risks: Pi CLI output is human-readable and may change; strict parsing and unavai
 
 ## Progress
 
+PR: #1211
+
 > Convention: `- [ ]` pending, `- [x]` done. Append — <commit sha> when a step lands.
 
 ### Phase 1: Pi discovery
@@ -26,3 +28,11 @@ Risks: Pi CLI output is human-readable and may change; strict parsing and unavai
 ### Phase 2: Verification
 
 - [x] 2.1 Run validation, review and QA evidence — 7e40fc8d
+
+## Final verification
+
+Independent reviewer approved code head `68e394d345f85a157d4f3896000a46cc793b7cfc`: https://github.com/open-mercato/cezar/pull/1211#issuecomment-5922976543.
+
+Reviewer-found Pi fallback naming bug fixed in68e394d3, regression verified independently. Final review suite69/69 and typecheck passed. Browser fixture evidence: https://github.com/open-mercato/cezar/pull/1211#issuecomment-5922968109. Initial local aggregate test run was interrupted after failures; current-head CI remains the merge gate.
+
+This final documentation update supersedes earlier pending review/browser statements without changing implementation. No fix branch was merged; applicable QA/CI still gate merge.
