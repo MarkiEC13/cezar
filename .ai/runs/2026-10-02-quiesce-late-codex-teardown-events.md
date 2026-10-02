@@ -22,7 +22,7 @@ Non-goals: `run.ts`, `mock-claude.mjs`, CI reporter changes, broad RunStore erro
 
 ### Phase 2: Verify and ship
 
-- [ ] 2.1 Run targeted and full configured validation, inspect the final diff, and open a ready PR for #1105.
+- [x] 2.1 Run targeted and full configured validation, inspect the final diff, and open the PR for #1105. — 64ef54fc
 
 ## Risks
 
@@ -39,4 +39,4 @@ Suppressing post-teardown lifecycle events is intentional: the owning run is alr
 
 ### Phase 2: Verify and ship
 
-- [ ] 2.1 Run targeted and full configured validation, inspect the final diff, and open a ready PR for #1105.
+- [x] 2.1 Run targeted and full configured validation, inspect the final diff, and open the PR for #1105. — 64ef54fc
