@@ -6,6 +6,8 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,6 +20,7 @@ import {
   agentTmpDirEnabled,
   agentTmpEnv,
   removeAgentTmpDir,
+  securePrivateDir,
   sweepAgentTmpDirs,
 } from './agent-tmpdir.ts';
 import { execFile } from 'node:child_process';
@@ -180,6 +183,86 @@ describe('agentTmpEnv — per-run temp directory (#785)', () => {
       expect(agentTmpDirEnabled({ CEZ_AGENT_TMPDIR: '1' })).toBe(true);
       expect(agentTmpDirEnabled({ CEZ_AGENT_TMPDIR: 'false' })).toBe(true);
       expect(agentTmpDirEnabled({ CEZ_AGENT_TMPDIR: '0' })).toBe(false);
+    });
+  });
+});
+
+/**
+ * The scratch tree is the agent's whole `TMPDIR`, and the Claude backend
+ * round-trips each command's stdout and stderr through a file in it. Default
+ * permissions make that world-readable, and the platform-temp fallback root is a
+ * fixed path in a directory every local user can write — the pair CodeQL flagged
+ * as `js/insecure-temporary-file` (high) on #1129.
+ */
+describe('agent scratch is private to its owner (#999)', () => {
+  let dataDir: string;
+
+  beforeEach(() => {
+    dataDir = mkdtempSync(join(realpathSync(tmpdir()), 'cez-agent-tmpdir-perm-'));
+  });
+
+  afterEach(() => {
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it.skipIf(process.platform === 'win32')('mints the run directory owner-only', () => {
+    const dir = agentTmpEnv(dataDir, 'run-private', {}).TMPDIR as string;
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
+  });
+
+  // The fallback is reached only through CEZ_HOME-inside-the-checkout, so this is
+  // also the end-to-end proof that agentTmpEnv vets the shared root before use.
+  it.skipIf(process.platform === 'win32')('mints the platform-temp fallback root owner-only', () => {
+    const env = { CEZ_HOME: join(dataDir, 'state') };
+    const dir = agentTmpEnv(dataDir, 'run-fallback', env).TMPDIR as string;
+    expect(dir.startsWith(`${dataDir}/`)).toBe(false);
+    // <platform tmp>/cez-agent/<hashed project>/<runId>
+    expect(statSync(dirname(dirname(dir))).mode & 0o777).toBe(0o700);
+  });
+
+  describe('securePrivateDir', () => {
+    it.skipIf(process.platform === 'win32')('creates a missing base owner-only', () => {
+      const base = join(dataDir, 'nested', 'base');
+      securePrivateDir(base);
+      expect(statSync(base).mode & 0o777).toBe(0o700);
+    });
+
+    // The realistic case on a long-lived box: a base minted before this guard
+    // existed, left group- and world-readable by the ambient umask.
+    it.skipIf(process.platform === 'win32')('re-tightens a loose base it owns', () => {
+      const base = join(dataDir, 'loose');
+      mkdirSync(base, { recursive: true, mode: 0o755 });
+      chmodSync(base, 0o755);
+      securePrivateDir(base);
+      expect(statSync(base).mode & 0o777).toBe(0o700);
+    });
+
+    // The attack the fixed fallback path invites: pre-create it as a symlink into
+    // a directory the attacker reads, and every agent's scratch lands there.
+    it('refuses a symlinked base instead of following it', () => {
+      const target = join(dataDir, 'attacker');
+      const base = join(dataDir, 'link');
+      mkdirSync(target, { recursive: true });
+      symlinkSync(target, base);
+      expect(() => securePrivateDir(base)).toThrow(AgentTempDirError);
+      expect(readdirSync(target)).toEqual([]);
+    });
+
+    // The thread footer renders this message and nothing else, so the one thing it
+    // tells the reader to do has to be the thing that helps.
+    it('names a remedy that fits, not “free disk space”', () => {
+      const base = join(dataDir, 'link-remedy');
+      mkdirSync(join(dataDir, 'elsewhere'), { recursive: true });
+      symlinkSync(join(dataDir, 'elsewhere'), base);
+      expect(() => securePrivateDir(base)).toThrow(/remove or take ownership of that path/);
+      expect(() => securePrivateDir(base)).not.toThrow(/free disk space/);
+      expect(() => securePrivateDir(base)).toThrow(/CEZ_AGENT_TMPDIR=0/);
+    });
+
+    it('is idempotent across runs sharing the base', () => {
+      const base = join(dataDir, 'shared');
+      securePrivateDir(base);
+      expect(() => securePrivateDir(base)).not.toThrow();
     });
   });
 });
