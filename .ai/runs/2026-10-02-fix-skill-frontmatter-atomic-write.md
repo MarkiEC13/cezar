@@ -25,5 +25,5 @@ Risks: YAML coercion can alter legacy scalar spelling, so unsupported values and
 ### Phase 3: Validate and publish
 
 - [x] 3.1 Run targeted tests and prove regressions fail without the fix — targeted 58/58; reverted-source proof 2 failures
-- [ ] 3.2 Run the configured full validation gate
+- [x] 3.2 Run the configured full validation gate — clean env: typecheck, 8589 Vitest, 36 unit, build, 17 package E2E
 - [ ] 3.3 Review, finalize, and publish the PR

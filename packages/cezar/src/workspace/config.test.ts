@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { fstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fsTestState = vi.hoisted(() => ({
   events: [] as string[],
+  openedFds: [] as number[],
   failWrite: false,
   failFsync: false,
 }));
@@ -13,6 +14,11 @@ vi.mock('node:fs', async () => {
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
   return {
     ...actual,
+    openSync: (...args: Parameters<typeof actual.openSync>) => {
+      const fd = actual.openSync(...args);
+      fsTestState.openedFds.push(fd);
+      return fd;
+    },
     writeFileSync: (...args: Parameters<typeof actual.writeFileSync>) => {
       if (fsTestState.failWrite) throw new Error('write failed');
       fsTestState.events.push('write');
@@ -22,6 +28,10 @@ vi.mock('node:fs', async () => {
       fsTestState.events.push('fsync');
       if (fsTestState.failFsync) throw new Error('fsync failed');
       return actual.fsyncSync(fd);
+    },
+    closeSync: (fd: number) => {
+      fsTestState.events.push('close');
+      return actual.closeSync(fd);
     },
     renameSync: (...args: Parameters<typeof actual.renameSync>) => {
       fsTestState.events.push('rename');
@@ -77,6 +87,7 @@ describe('workspace config', () => {
     rmSync(home, { recursive: true, force: true });
     vi.restoreAllMocks();
     fsTestState.events.length = 0;
+    fsTestState.openedFds.length = 0;
     fsTestState.failWrite = false;
     fsTestState.failFsync = false;
   });
@@ -238,7 +249,8 @@ describe('workspace config', () => {
   it('flushes before rename and removes the staging file when rename fails', () => {
     const target = join(home, 'ui-state.json');
     expect(() => atomicWriteJsonSync(target, { ok: true })).not.toThrow();
-    expect(fsTestState.events.slice(-3)).toEqual(['write', 'fsync', 'rename']);
+    expect(fsTestState.events.indexOf('fsync')).toBeLessThan(fsTestState.events.indexOf('rename'));
+    expect(fsTestState.events.indexOf('close')).toBeLessThan(fsTestState.events.indexOf('rename'));
     expect(readFileSync(target, 'utf8')).toContain('"ok": true');
 
     mkdirSync(join(home, 'rename-target'));
@@ -250,11 +262,13 @@ describe('workspace config', () => {
     const target = join(home, 'failure.json');
     fsTestState.failWrite = true;
     expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow('write failed');
+    expect(() => fstatSync(fsTestState.openedFds.at(-1)!)).toThrow(/EBADF|closed/i);
     expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
 
     fsTestState.failWrite = false;
     fsTestState.failFsync = true;
     expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow('fsync failed');
+    expect(() => fstatSync(fsTestState.openedFds.at(-1)!)).toThrow(/EBADF|closed/i);
     expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
 
     fsTestState.failFsync = false;
