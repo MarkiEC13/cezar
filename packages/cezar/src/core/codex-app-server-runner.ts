@@ -100,6 +100,12 @@ class CodexSession implements AgentSession {
   private readonly child!: ChildProcessWithoutNullStreams;
   private readonly rpc!: CodexAppServerRpc;
   private stdinOpen = true;
+  /**
+   * Teardown can finish the child after its owning run/store has already gone
+   * away. Keep live callback failures loud, but stop lifecycle events once
+   * cezar has started closing the session (#1105).
+   */
+  private eventDeliveryOpen = true;
   private threadId: string | undefined;
   private activeTurnId: string | undefined;
   private pendingUserInput: PendingUserInput | undefined;
@@ -306,7 +312,9 @@ class CodexSession implements AgentSession {
     void this.ready
       .then(() => this.startOrSteerTurn(text))
       .catch((err: unknown) => {
-        this.emit(this.asyncTurnFailure(err instanceof Error ? err.message : String(err)));
+        if (this.eventDeliveryOpen) {
+          this.emit(this.asyncTurnFailure(err instanceof Error ? err.message : String(err)));
+        }
       });
     return true;
   }
@@ -353,6 +361,7 @@ class CodexSession implements AgentSession {
     if (!this.stdinOpen) return;
     this.rejectPendingUserInput('session ended');
     this.stdinOpen = false;
+    this.eventDeliveryOpen = false;
     try {
       endCodexAppServer(
         this.child,
@@ -371,6 +380,7 @@ class CodexSession implements AgentSession {
 
   interrupt(): void {
     this.stdinOpen = false;
+    this.eventDeliveryOpen = false;
     this.rejectPendingUserInput('turn interrupted');
     // Best-effort graceful cancel of the in-flight turn, then hard stop.
     if (this.threadId && this.activeTurnId) {
@@ -598,6 +608,7 @@ class CodexSession implements AgentSession {
   }
 
   private emit(event: AgentEvent): void {
+    if (!this.eventDeliveryOpen) return;
     this.onEvent?.(event);
   }
 
