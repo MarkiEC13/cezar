@@ -12,7 +12,9 @@ Risks: The route state and wire attachment types differ; the submit parameter mu
 
 ## Progress
 
-> Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
+PR: #1229
+
+> Convention: `- [x]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Reproduce and implement
 
@@ -25,4 +27,8 @@ Risks: The route state and wire attachment types differ; the submit parameter mu
 - [x] 2.2 Run the ordered repository validation gate and browser QA evidence — 8b208fe0
 - [x] 2.3 Review the PR, finalize labels/body, and report the verified result — 8b208fe0
 
-Validation note: the exact local `npm test` gate was rerun with `TMPDIR=/tmp` and task metadata unset. Two unrelated baseline tests remain red: the system-prompt expectation predates the current automation instructions, and the agent-profile test only passes when unrelated inherited `CEZ_API_URL`/`CEZ_BIN` are also unset. The latter passes under that control; GitHub CI for this head passed. Browser QA passed with the documented staged-library fallback and flags.
+
+## Final verification
+
+All configured commands passed. Clean full `npm test -- --maxWorkers=2`: 507 files / 8588 tests passed. Test subprocesses removed inherited `CEZ_*` values and used `/tmp`; earlier environment/timing failures are superseded by this green run. Independent final review found no code defects on this implementation. Evidence: https://github.com/open-mercato/cezar/pull/1229#issuecomment-5944195873.
+Browser QA passed; screenshots: https://github.com/open-mercato/cezar/pull/1229#issuecomment-5943896589. Repository QA approval remains a merge gate.
