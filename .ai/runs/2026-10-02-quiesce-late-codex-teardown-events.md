@@ -4,12 +4,13 @@ Issue: #1105
 
 ## Goal
 
-Prevent Codex session events emitted after cezar teardown from writing to a removed run store or escaping a floating follow-up promise, while preserving synchronous event-delivery failures during a live session.
+Prevent a Codex follow-up rejection after cezar teardown from escaping its discarded floating promise, while preserving normal cancellation lifecycle events and synchronous event-delivery failures during a live session.
 
 ## Scope
 
-- `packages/cezar/src/core/codex-app-server-runner.ts`: close the event-delivery gate at teardown and skip late v1 events, including the floating follow-up failure path.
+- `packages/cezar/src/core/codex-app-server-runner.ts`: close follow-up failure delivery at teardown; retain normal cancellation `done` events.
 - `packages/cezar/src/core/codex-app-server-runner.test.ts`: deterministic regression coverage for a rejected follow-up after teardown and the live callback-error boundary.
+- `packages/cezar/src/workflows/run.test.ts`: await the active session result before removing the #955 temp fixture.
 
 Non-goals: `run.ts`, `mock-claude.mjs`, CI reporter changes, broad RunStore error handling, or changes to the sibling #1221 work.
 
@@ -26,7 +27,7 @@ Non-goals: `run.ts`, `mock-claude.mjs`, CI reporter changes, broad RunStore erro
 
 ## Risks
 
-Suppressing post-teardown lifecycle events is intentional: the owning run is already cancelling and its storage may be gone. The gate must not apply while a session is live, so active-store corruption remains a thrown error.
+Suppressing only the self-inflicted follow-up failure event is intentional: the owning run is already cancelling and its storage may be gone. Normal `done` delivery remains unchanged, and active-store corruption remains a thrown error while live or as the explicitly asserted cancellation result.
 
 ## Progress
 

@@ -96,29 +96,48 @@ describe('late Codex teardown events (#1105)', () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (error: unknown) => unhandled.push(error);
     process.on('unhandledRejection', onUnhandled);
-    const events: AgentEvent[] = [];
-    const session = new CodexAppServerRunner({ bin: mockBin, timeoutMs: 0 }).startSession(
-      { userPrompt: 'mock:steer-silent keep going', cwd: dir },
-      (event) => {
-        events.push(event);
-        // A late event would synchronously reproduce the removed-store failure
-        // from the issue, including through the floating follow-up catch path.
-        store.appendEvent(run.id, { ...event, stepId: 'task' });
-      },
-    );
-    void session.result.catch(() => undefined);
+    let session: ReturnType<CodexAppServerRunner['startSession']> | undefined;
+    try {
+      const events: AgentEvent[] = [];
+      session = new CodexAppServerRunner({ bin: mockBin, timeoutMs: 0 }).startSession(
+        { userPrompt: 'mock:steer-silent keep going', cwd: dir },
+        (event) => {
+          events.push(event);
+          // A late event would synchronously reproduce the removed-store failure
+          // from the issue, including through the floating follow-up catch path.
+          store.appendEvent(run.id, { ...event, stepId: 'task' });
+        },
+      );
 
-    await expect.poll(() => events.some((event) => event.type === 'text'), { timeout: 10_000 }).toBe(true);
-    expect(session.sendMessage([{ type: 'text', text: 'Continue' }])).toBe(true);
-    session.interrupt();
-    store.flush();
-    rmSync(dir, { recursive: true, force: true });
+      await expect.poll(() => events.some((event) => event.type === 'text'), { timeout: 10_000 }).toBe(true);
+      expect(session.sendMessage([{ type: 'text', text: 'Continue' }])).toBe(true);
+      session.interrupt();
+      store.flush();
+      rmSync(dir, { recursive: true, force: true });
 
-    await session.result.catch(() => undefined);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    process.off('unhandledRejection', onUnhandled);
-
-    expect(unhandled).toEqual([]);
+      const resultError = await session.result.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(resultError).toBeInstanceOf(Error);
+      expect((resultError as NodeJS.ErrnoException).code).toBe('ENOENT');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+      if (session?.open) session.interrupt();
+      if (session) {
+        await session.result.then(
+          () => undefined,
+          (error: unknown) => {
+            // The removed fixture intentionally makes the late `done` append fail;
+            // the assertion above already verifies that exact, expected ENOENT.
+            if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          },
+        );
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
   }, 20_000);
 
   it('still rejects the live session when its event callback fails', async () => {
