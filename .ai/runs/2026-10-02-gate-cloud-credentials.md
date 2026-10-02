@@ -35,10 +35,10 @@ The main risk is accidentally changing Claude or `claude-cli` toggle behavior; t
 
 ### Phase 1: Explicit identity gate
 
-- [ ] 1.1 Replace prefix-shape cloud gating with an explicit Claude backend identity check.
-- [ ] 1.2 Add regression coverage for Claude, `claude-cli`, and non-Claude backends.
+- [x] 1.1 Replace prefix-shape cloud gating with an explicit Claude backend identity check. — 09406b82
+- [x] 1.2 Add regression coverage for Claude, `claude-cli`, and non-Claude backends. — 09406b82
 
 ### Phase 2: Verification and delivery
 
-- [ ] 2.1 Run targeted tests and prove the regression fails against the pre-fix implementation.
-- [ ] 2.2 Run the full configured validation gate, review the diff, and open the issue PR.
+- [x] 2.1 Run targeted tests and prove the regression fails against the pre-fix implementation. — 09406b82
+- [ ] 2.2 Run the full configured validation gate, review the diff, and open the issue PR. — baseline failures documented
