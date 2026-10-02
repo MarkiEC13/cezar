@@ -27,3 +27,9 @@ Risks: YAML coercion can alter legacy scalar spelling, so unsupported values and
 - [x] 3.1 Run targeted tests and prove regressions fail without the fix — targeted 58/58; reverted-source proof 2 failures
 - [x] 3.2 Run the configured full validation gate — clean env: typecheck, 8589 Vitest, 36 unit, build, 17 package E2E
 - [x] 3.3 Inline review completed; PR finalized and ready — independent final review remains for parent
+
+## Evidence
+
+- Final head: `adb2ce31` (code/test changes through `066bfcd3`).
+- PR: https://github.com/open-mercato/cezar/pull/1231
+- Clean gate: typecheck, 8,589 Vitest tests, 36 unit tests, build, and 17 package E2E tests passed. Final targeted parser/config tests: 58/58.
