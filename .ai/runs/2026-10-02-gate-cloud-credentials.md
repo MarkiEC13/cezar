@@ -23,7 +23,7 @@ Non-goals: changing which ordinary environment variables each backend receives, 
 ### Phase 2: Verification and delivery
 
 - [x] 2.1 Run targeted tests and prove the regression fails against the pre-fix implementation. — 09406b82
-- [ ] 2.2 Run the full configured validation gate, review the diff, and open the issue PR. — baseline failures documented; review follow-up pending
+- [x] 2.2 Run the full configured validation gate, review the diff, and open the issue PR. — 507 files / 8,588 tests green under clean subprocess env
 
 ## Risks
 
@@ -31,7 +31,7 @@ The main risk is accidentally changing Claude or `claude-cli` toggle behavior; t
 
 ## Validation notes
 
-With task metadata unset and `TMPDIR=/tmp`, the focused regression passes 36/36. Against the original prefix-based gate, the new test fails on the actual AWS assertion: `AWS_SECRET_ACCESS_KEY` is forwarded to codex after its allowlist is given `CLAUDE_`; Vertex assertions are included in the same negative control. The full current-branch suite is 8,585 passed / 3 failed. Exact failures: `packages/web/src/routes/repo-git/repo-git.test.tsx > the repo view Changes segment > a clean tree renders the honest empty state`, `packages/cezar/src/workflows/agent-profile-wiring.test.ts > RunManager agent-profile resolution > adds NOTHING for the default account — the zero-config env is untouched`, and `packages/cezar/src/workflows/system-prompt.test.ts > the global follow-up gate (dry run) > without CEZ_FOLLOWUPS the agent is never told about the inbox`. The same focused baseline run on `origin/main` passes repo-git and reproduces the latter two failures; none touches the changed files.
+With every `CEZ_*` variable removed, Git directory variables unset, and `TMPDIR`, `TMP`, and `TEMP` set to `/tmp`, the focused regression passes 36/36 and the full suite passes 507 files / 8,588 tests with zero failures. Against the original prefix-based gate, the negative control fails on the actual AWS assertion: `AWS_SECRET_ACCESS_KEY` is forwarded to codex after its allowlist is given `CLAUDE_`; Vertex assertions are included in the same negative control. Earlier partial runs with inherited environment variables produced three artifacts; the clean subprocess control eliminates them.
 
 ## Progress
 
@@ -45,4 +45,4 @@ With task metadata unset and `TMPDIR=/tmp`, the focused regression passes 36/36.
 ### Phase 2: Verification and delivery
 
 - [x] 2.1 Run targeted tests and prove the regression fails against the pre-fix implementation. — 09406b82
-- [ ] 2.2 Run the full configured validation gate, review the diff, and open the issue PR. — baseline failures documented; review follow-up pending
+- [x] 2.2 Run the full configured validation gate, review the diff, and open the issue PR. — 241b6390
