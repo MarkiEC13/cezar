@@ -100,12 +100,11 @@ class CodexSession implements AgentSession {
   private readonly child!: ChildProcessWithoutNullStreams;
   private readonly rpc!: CodexAppServerRpc;
   private stdinOpen = true;
-  /**
-   * Teardown can finish the child after its owning run/store has already gone
-   * away. Keep live callback failures loud, but stop lifecycle events once
-   * cezar has started closing the session (#1105).
-   */
-  private eventDeliveryOpen = true;
+  /** Teardown rejects follow-up RPCs after the owning run may have gone away.
+   * Do not route that self-inflicted rejection through the discarded floating
+   * promise, while keeping the normal cancellation lifecycle (`done`) intact
+   * for existing session consumers (#1105). */
+  private followUpDeliveryOpen = true;
   private threadId: string | undefined;
   private activeTurnId: string | undefined;
   private pendingUserInput: PendingUserInput | undefined;
@@ -312,7 +311,7 @@ class CodexSession implements AgentSession {
     void this.ready
       .then(() => this.startOrSteerTurn(text))
       .catch((err: unknown) => {
-        if (this.eventDeliveryOpen) {
+        if (this.followUpDeliveryOpen) {
           this.emit(this.asyncTurnFailure(err instanceof Error ? err.message : String(err)));
         }
       });
@@ -361,7 +360,7 @@ class CodexSession implements AgentSession {
     if (!this.stdinOpen) return;
     this.rejectPendingUserInput('session ended');
     this.stdinOpen = false;
-    this.eventDeliveryOpen = false;
+    this.followUpDeliveryOpen = false;
     try {
       endCodexAppServer(
         this.child,
@@ -380,7 +379,7 @@ class CodexSession implements AgentSession {
 
   interrupt(): void {
     this.stdinOpen = false;
-    this.eventDeliveryOpen = false;
+    this.followUpDeliveryOpen = false;
     this.rejectPendingUserInput('turn interrupted');
     // Best-effort graceful cancel of the in-flight turn, then hard stop.
     if (this.threadId && this.activeTurnId) {
@@ -608,7 +607,6 @@ class CodexSession implements AgentSession {
   }
 
   private emit(event: AgentEvent): void {
-    if (!this.eventDeliveryOpen) return;
     this.onEvent?.(event);
   }
 
