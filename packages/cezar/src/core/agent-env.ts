@@ -217,7 +217,8 @@ const MULTI_PROVIDER_PREFIXES: readonly string[] = [
 ];
 
 /** Per-backend auth/config the runner genuinely needs, by prefix. */
-const BACKEND_ALLOW_PREFIXES: Record<AgentBackend, readonly string[]> = {
+/** @internal Focused tests mutate a copy of one entry to model future policy changes. */
+export const BACKEND_ALLOW_PREFIXES: Record<AgentBackend, readonly string[]> = {
   claude: ['ANTHROPIC_', 'CLAUDE_'],
   'claude-cli': ['ANTHROPIC_', 'CLAUDE_'],
   codex: ['OPENAI_', 'CODEX_', 'AZURE_OPENAI_'],
