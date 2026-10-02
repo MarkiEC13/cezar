@@ -16,11 +16,13 @@ Risks: The route state and wire attachment types differ; the submit parameter mu
 
 ### Phase 1: Reproduce and implement
 
-- [x] 1.1 Add failing regression coverage for plan attachment restoration and post-start cleanup — dad2012d
+- [x] 1.1 Add failing regression coverage for plan attachment restoration and post-start cleanup — 8b208fe0
 - [x] 1.2 Restore the route attachment chips after successful planning and clear consumed attachments after Start — dad2012d
 
 ### Phase 2: Validate and ship
 
-- [x] 2.1 Run focused tests, prove red without the fix, then prove green with it — 8a578eb5
-- [ ] 2.2 Run the ordered repository validation gate and browser QA evidence
-- [ ] 2.3 Review the PR, finalize labels/body, and report the verified result
+- [x] 2.1 Run focused tests, prove red without the fix, then prove green with it — 8b208fe0
+- [x] 2.2 Run the ordered repository validation gate and browser QA evidence — 8b208fe0
+- [x] 2.3 Review the PR, finalize labels/body, and report the verified result — 8b208fe0
+
+Validation note: the exact local `npm test` gate was rerun with `TMPDIR=/tmp` and task metadata unset. Two unrelated baseline tests remain red: the system-prompt expectation predates the current automation instructions, and the agent-profile test only passes when unrelated inherited `CEZ_API_URL`/`CEZ_BIN` are also unset. The latter passes under that control; GitHub CI for this head passed. Browser QA passed with the documented staged-library fallback and flags.
