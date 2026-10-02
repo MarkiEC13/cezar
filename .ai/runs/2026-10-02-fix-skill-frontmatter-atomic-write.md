@@ -19,11 +19,11 @@ Risks: YAML coercion can alter legacy scalar spelling, so unsupported values and
 
 ### Phase 2: Implement compatibility-preserving fixes
 
-- [x] 2.1 Add parser and atomic-write regression tests — 39fa44d5 + working tree
-- [x] 2.2 Implement YAML per-key fallback and durable temp-file lifecycle — working tree
+- [x] 2.1 Add parser and atomic-write regression tests — 39fa44d5 + a1bffb0d follow-up
+- [x] 2.2 Implement YAML per-key fallback and durable temp-file lifecycle — 5935762b + follow-up
 
 ### Phase 3: Validate and publish
 
-- [x] 3.1 Run targeted tests and prove regressions fail without the fix — targeted 51/51; reverted-source proof 3 failures
+- [x] 3.1 Run targeted tests and prove regressions fail without the fix — targeted 58/58; reverted-source proof 2 failures
 - [ ] 3.2 Run the configured full validation gate
 - [ ] 3.3 Review, finalize, and publish the PR
