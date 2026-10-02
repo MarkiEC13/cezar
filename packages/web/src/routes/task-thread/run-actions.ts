@@ -110,7 +110,7 @@ export interface RunActionFlags {
    *  read. Both halves come from `lib/read-state.ts` so the header can never offer an action
    *  whose result the marker rule would ignore. */
   markUnread: boolean
-  /** "Run next" — move a queued task to the front of its queue, so it takes the first free
+  /** "Run First" — move a queued task to the front of its queue, so it takes the first free
    *  slot (brief 2026-09-23-queued-task-run-next). Only while the run is actually waiting in the
    *  queue; offered again on a promoted run, because promoting again re-stamps it to the top. */
   promote: boolean
@@ -165,7 +165,7 @@ export function finishTitle(status: RunStatus): string {
 /**
  * 1-based position among the queued, unarchived runs, in the engine's start order — the legacy
  * queued-placeholder math (web/app.js `queuePosition`, spec 006), now `queuePositions` itself so
- * a "Run next" promotion moves this number and the list's in the same render. Undefined when the
+ * a "Run First" promotion moves this number and the list's in the same render. Undefined when the
  * run is not itself queued (or the list doesn't know it yet — SSE races the detail fetch).
  */
 export function queuePosition(runs: RunRecord[], runId: string): number | undefined {

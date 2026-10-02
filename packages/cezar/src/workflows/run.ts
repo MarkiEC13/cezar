@@ -933,7 +933,7 @@ export class RunManager {
   // Queue + `starting` set (spec 006, janitor's pump() pattern): `starting`
   // covers the window between shifting a run off the queue and the run
   // registering in `active`, so parallel-slot counting is never racy.
-  // Order: "Run next" promotions first (newest first), then arrival — see `enqueue()`.
+  // Order: "Run First" promotions first (newest first), then arrival — see `enqueue()`.
   private readonly queue: string[] = [];
   private readonly starting = new Set<string>();
   // Runs parked at `waiting` (open session, ball in the user's court). They
@@ -1392,7 +1392,7 @@ export class RunManager {
    * Put a run into the queue at its rank (brief 2026-09-23-queued-task-run-next). The queue
    * keeps one invariant: promoted runs first, newest promotion first, then everything else in
    * arrival order. An unpromoted run is therefore a plain `push` — exactly what every call site
-   * did before "Run next" existed.
+   * did before "Run First" existed.
    *
    * Only a record can carry a live `promotedAt` into here — `promote()` itself, and restart
    * recovery / the watchdog reviving a run that was promoted before the process lost it. Every
@@ -1404,7 +1404,7 @@ export class RunManager {
       this.queue.push(runId);
       return;
     }
-    // Ties go to the newcomer: "Run next" means next, so the latest promotion wins.
+    // Ties go to the newcomer: "Run First" means first, so the latest promotion wins.
     const at = this.queue.findIndex((id) => {
       const other = this.store.getRun(id)?.promotedAt;
       return !other || other <= promotedAt;
@@ -1414,7 +1414,7 @@ export class RunManager {
   }
 
   /**
-   * "Run next": move a queued run to the front of this project's queue, so it takes the first
+   * "Run First": move a queued run to the front of this project's queue, so it takes the first
    * slot the ordinary gates allow (brief 2026-09-23-queued-task-run-next). It never bypasses a
    * cap or an account hold — `pump()` still skips a run that cannot start and starts the next
    * one that can. Promoting an already-promoted run re-stamps it to the very top.
@@ -1435,7 +1435,7 @@ export class RunManager {
     return true;
   }
 
-  /** Epoch ms of the newest "Run next" promotion in this manager's queue (the semaphore's
+  /** Epoch ms of the newest "Run First" promotion in this manager's queue (the semaphore's
    *  cross-project preference), or null. `enqueue()` keeps promotions at the head, newest
    *  first, so the head answers for the whole queue. Best-effort like the rest of `release()`:
    *  when that head cannot start (its account is held), `pump()` starts the next run that can,
@@ -1531,7 +1531,7 @@ export class RunManager {
           if (next === -1) break; // nothing queued can start right now
           const runId = this.queue.splice(next, 1)[0];
           if (!runId) break;
-          // Leaving the queue gives up a "Run next" place. The store would retire it anyway once
+          // Leaving the queue gives up a "Run First" place. The store would retire it anyway once
           // the run's status moves on, but the run is still `queued` until `execute` writes
           // `running` — and a usage-limit send-back in that window must not re-enter at the front.
           if (this.store.getRun(runId)?.promotedAt) this.store.updateRun(runId, { promotedAt: undefined });
@@ -1690,7 +1690,7 @@ export class RunManager {
   /**
    * Startup recovery (#367) — re-adopt runs that were live when the previous
    * cezar process exited (requires the store opened with `keepLive`):
-   *  - `queued`  → back into the queue (FIFO by createdAt, a surviving "Run next"
+   *  - `queued`  → back into the queue (FIFO by createdAt, a surviving "Run First"
    *    promotion first — `enqueue()`), from the persisted
    *    workflowDef (or the catalog by name for older records);
    *  - `waiting` → the turn was over and the ball was in the user's court —

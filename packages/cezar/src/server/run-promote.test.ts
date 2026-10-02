@@ -10,7 +10,7 @@ import { apiRequest } from './loopback-request.testkit.ts';
 import { connectedProviderAuth } from './provider-auth.testkit.ts';
 
 /**
- * `POST /api/v1/runs/:id/promote` — "Run next" (brief
+ * `POST /api/v1/runs/:id/promote` — "Run First" (brief
  * .ai/specs/briefs/2026-09-23-queued-task-run-next.md). The engine half (queue order, caps,
  * restart) is pinned in `workflows/run-next.test.ts`; this pins the route's three answers.
  */

@@ -169,7 +169,7 @@ describe('WorkspaceSemaphore', () => {
     expect(order).toEqual(['older', 'newer', 'idle']);
   });
 
-  it('release() pumps a queue holding a "Run next" promotion first, newest promotion first', async () => {
+  it('release() pumps a queue holding a "Run First" promotion first, newest promotion first', async () => {
     const order: string[] = [];
     const named = (name: string, queuedAt: number | null, promotedAt?: number | null): SemaphoreParticipant => ({
       busySlots: () => 0,

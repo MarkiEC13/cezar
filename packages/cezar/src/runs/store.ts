@@ -352,7 +352,7 @@ export const runRecordSchema = z.object({
    *  the key rather than persist a `false` older cezars never wrote. */
   pinned: z.boolean().optional(),
   pinnedAt: z.string().optional(),
-  /** "Run next" (brief 2026-09-23-queued-task-run-next): the ISO time a queued run was
+  /** "Run First" (brief 2026-09-23-queued-task-run-next): the ISO time a queued run was
    *  promoted to the front of its queue. Present only while the run is still `queued` —
    *  `updateRun` retires it on any other status — so it survives a restart and nothing else. */
   promotedAt: z.string().optional(),
@@ -783,7 +783,7 @@ export function reconcileLoadedRun(run: RunRecord, opts?: { keepLive?: boolean }
   // A mid-workflow ask park (#917) means nothing off a `waiting` run — including
   // the `failed` written just above for readers that do not recover.
   if (run.status !== 'waiting') run.askParked = undefined;
-  // A "Run next" place is a place in the QUEUE — the `failed` written above for readers that do
+  // A "Run First" place is a place in the QUEUE — the `failed` written above for readers that do
   // not recover gives it up, exactly as `updateRun` retires it on any other status. Left behind,
   // a later Continue would re-queue the run carrying a mark the user never renewed.
   if (run.status !== 'queued') run.promotedAt = undefined;
@@ -1025,7 +1025,7 @@ export class RunStore extends EventEmitter {
     if (normalized.status && normalized.status !== 'waiting') {
       normalized.askParked = undefined;
     }
-    // "Run next" (brief 2026-09-23-queued-task-run-next) is a place in the QUEUE, so any run
+    // "Run First" (brief 2026-09-23-queued-task-run-next) is a place in the QUEUE, so any run
     // leaving it — starting, cancelled, failed — gives the place up. A run that later comes back
     // (a Continue deferred for capacity, a usage-limit send-back) re-enters at the tail like
     // everyone else instead of silently jumping the line on a stale mark.

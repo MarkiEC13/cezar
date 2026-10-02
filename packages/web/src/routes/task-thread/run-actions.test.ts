@@ -47,7 +47,7 @@ describe('runActionFlags — the visibility matrix, all 7 statuses × archived',
   // `pin` (#935) is the one flag `archived` does turn off, since archiving retires the pin: the
   // archived rows below assert exactly that, and every live row offers it whatever the status,
   // because a pin is about what YOU are working on rather than what the engine is doing.
-  // `promote` ("Run next") is offered only to a live queued run: it is a place in the queue, and an
+  // `promote` ("Run First") is offered only to a live queued run: it is a place in the queue, and an
   // archived run is not in the queue.
   // `markUnread` (#775) is false in every cell of this matrix because the fixture carries no
   // `finishedAt` — a record with no finish instant can never wear the unread marker, whatever
@@ -66,7 +66,7 @@ describe('runActionFlags — the visibility matrix, all 7 statuses × archived',
     expect(runActionFlags(run(status))).toEqual({ ...expected, notes: true })
   })
 
-  it.each(matrix)('$status (archived — same flags but the pin and Run next, and the Archive label flips)', ({ status, expected }) => {
+  it.each(matrix)('$status (archived — same flags but the pin and Run First, and the Archive label flips)', ({ status, expected }) => {
     expect(runActionFlags(run(status, { archived: true }))).toEqual({ ...expected, notes: true, pin: false, promote: false })
   })
 

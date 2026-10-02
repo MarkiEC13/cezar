@@ -3,6 +3,9 @@
 - Brief: `.ai/specs/briefs/2026-09-23-queued-task-run-next.md`
 - Branch: `feat/queued-task-run-next`
 - Engine: om-auto-create-pr (steps: 7, --loop: no)
+- Label: the brief and the steps below name the action "Run next"; review feedback on PR #1065
+  renamed it to **Run First**, which is what ships. The identifiers (`promote`, `promotedAt`,
+  `POST /runs/:id/promote`) are unchanged — only the wording the user reads.
 
 ## Goal
 

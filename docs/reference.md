@@ -42,9 +42,9 @@ Five moves that make the cockpit worth the browser tab:
   `maxParallel` at once across every project (default **2**; a non-git directory
   always runs one) and
   holds the rest in a FIFO queue with visible positions (`#1`, `#2`, …). Cancel a
-  queued task before it starts, or press **Run next** in its header to move it to the
+  queued task before it starts, or press **Run First** in its header to move it to the
   front so it takes the first free slot. It still waits for that slot and never goes past
-  a cap. The latest Run next goes first, and when a slot frees anywhere in the workspace
+  a cap. The most recent **Run First** wins, and when a slot frees anywhere in the workspace
   a promoted task is preferred over older ones in other projects. The queue even survives
   a cockpit restart: everything still `queued` is re-enqueued in order, promotions
   included. It's the orchestration layer

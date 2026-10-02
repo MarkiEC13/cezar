@@ -80,7 +80,7 @@ describe('src/contract/runs.ts matches the runs routes exactly', () => {
     // the pin (#935) answers the record too — pinned here is what stops it drifting into a
     // bespoke `{pinned: true}` payload the moment someone finds that shorter to write
     Assert<Exact<z.infer<typeof runRecordSchema>, RunPin200>>,
-    // "Run next" answers the record the same way
+    // "Run First" answers the record the same way
     Assert<Exact<z.infer<typeof runRecordSchema>, RunPromote200>>,
     Assert<Exact<z.infer<typeof runRecordSchema>, RunPatch200>>,
     // the read receipt and its inverse (#unread-done-items, #775) — both answer the record, and

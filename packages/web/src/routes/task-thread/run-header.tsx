@@ -326,7 +326,7 @@ function RunHeaderView({
                 onClick={() => actions.promote.mutate()}
               >
                 <ArrowUpToLineIcon aria-hidden="true" />
-                Run next
+                Run First
               </Button>
             ) : null}
             {flags.pin ? (
@@ -530,7 +530,7 @@ function useRunActions(run: ApiRun, onMarkedUnread?: () => void) {
       markUnreadMutation.mutate(run.id, { onError })
     },
   }
-  // "Run next" — the answer is the record, and the list re-sorts from the invalidation (the
+  // "Run First" — the answer is the record, and the list re-sorts from the invalidation (the
   // `run` SSE would get there too); a 409 means the run left the queue meanwhile.
   const promote = useMutation({ mutationFn: () => promoteRun(run.id), onSuccess: invalidate, onError })
   const cancel = useMutation({ mutationFn: () => cancelRun(run.id), onSuccess: invalidate, onError })
@@ -1166,7 +1166,7 @@ function ActionsKebab({
             disabled={actions.promote.isPending}
             onSelect={() => actions.promote.mutate()}
           >
-            <ArrowUpToLineIcon aria-hidden="true" /> Run next
+            <ArrowUpToLineIcon aria-hidden="true" /> Run First
           </DropdownMenuItem>
         ) : null}
         {flags.pin ? (

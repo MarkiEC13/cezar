@@ -9,7 +9,7 @@ import { RunManager } from './run.ts';
 import type { WorkflowDef } from './types.ts';
 
 /**
- * "Run next" (brief .ai/specs/briefs/2026-09-23-queued-task-run-next.md): a queued run can be
+ * "Run First" (brief .ai/specs/briefs/2026-09-23-queued-task-run-next.md): a queued run can be
  * promoted to the front of its queue, so it takes the first slot the ordinary gates allow.
  *
  * The cap is held at 0 while the queue is arranged, so nothing starts behind the test's back;
@@ -58,7 +58,7 @@ function gatedSemaphore(): { semaphore: WorkspaceSemaphore; open: (cap: number) 
 
 const queueOf = (manager: RunManager): string[] => (manager as unknown as { queue: string[] }).queue;
 
-describe('RunManager.promote — "Run next"', () => {
+describe('RunManager.promote — "Run First"', () => {
   const roots: string[] = [];
   const managers: RunManager[] = [];
   const stores: RunStore[] = [];

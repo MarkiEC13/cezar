@@ -215,7 +215,7 @@ export function queuePositions(runs: readonly RunRecord[]): Map<string, number> 
  *
  *  - `scheduled` — soonest appointment on top. A task resuming at 11:14 sits above one resuming
  *    at 11:40, whichever was created first.
- *  - `queued` — the engine's start order (`compareQueued`: "Run next" promotions, then oldest
+ *  - `queued` — the engine's start order (`compareQueued`: "Run First" promotions, then oldest
  *    first), which is exactly the `#1 in queue` position the row already prints beside itself.
  *    Newest-first rendered those positions backwards.
  *

@@ -100,7 +100,7 @@ export interface SemaphoreParticipant {
    *  have registered first. */
   oldestQueuedAt(): number | null;
   /**
-   * Epoch ms of this manager's newest "Run next" promotion still waiting in its queue, or null
+   * Epoch ms of this manager's newest "Run First" promotion still waiting in its queue, or null
    * when none is (brief 2026-09-23-queued-task-run-next). `release()` hands a freed slot to a
    * promoted queue before any FIFO one, so a promoted task in project B is preferred over an
    * older unpromoted task in project A. Optional so a stub participant — and any caller that
@@ -249,7 +249,7 @@ export class WorkspaceSemaphore {
 
   /**
    * A slot came free somewhere in the workspace: pump EVERY manager,
-   * longest-waiting-queue first — except that a queue holding a "Run next"
+   * longest-waiting-queue first — except that a queue holding a "Run First"
    * promotion goes ahead of every queue that does not (newest promotion first).
    *
    * This is the counterpart to `busy()` being workspace-wide. A `RunManager`
@@ -279,7 +279,7 @@ export class WorkspaceSemaphore {
         const ordered = [...this.participants]
           .map((participant) => ({
             participant,
-            // A promoted queue ("Run next") goes before every FIFO one, newest promotion first.
+            // A promoted queue ("Run First") goes before every FIFO one, newest promotion first.
             promoted: participant.newestPromotionAt?.() ?? null,
             // Empty queues sort last — they have nothing to claim the slot with.
             since: participant.oldestQueuedAt() ?? Number.MAX_SAFE_INTEGER,

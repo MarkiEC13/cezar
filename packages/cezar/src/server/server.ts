@@ -4259,7 +4259,7 @@ export function createApp(deps: ServerDeps) {
       return c.json({ cancelled });
     })
 
-    // "Run next" (brief 2026-09-23-queued-task-run-next): move a queued run to the front of its
+    // "Run First" (brief 2026-09-23-queued-task-run-next): move a queued run to the front of its
     // queue so it takes the first free slot — never past a cap. Answers the updated record, like
     // pin; the change rides the existing `run` SSE. 409 when the run is not waiting in the queue.
     .post('/runs/:id/promote', (c) => {

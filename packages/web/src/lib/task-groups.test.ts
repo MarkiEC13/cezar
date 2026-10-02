@@ -222,7 +222,7 @@ describe('queuePositions', () => {
     expect(queuePositions(runs)).toEqual(new Map([['queued', 1]]))
   })
 
-  it('numbers "Run next" promotions first, newest promotion first — the engine\'s start order', () => {
+  it('numbers "Run First" promotions first, newest promotion first — the engine\'s start order', () => {
     const runs = [
       run({ id: 'oldest', status: 'queued', createdAt: '2026-07-14T09:00:00.000Z' }),
       run({ id: 'promoted-early', status: 'queued', createdAt: '2026-07-14T12:00:00.000Z', promotedAt: '2026-07-14T13:00:00.000Z' }),

@@ -1947,7 +1947,7 @@ describe('RunStore — the legacy `claude-cli` runner id (#547)', () => {
   });
 });
 
-describe('RunStore — promotedAt ("Run next")', () => {
+describe('RunStore — promotedAt ("Run First")', () => {
   let dataDir: string;
 
   beforeEach(() => {
@@ -2001,7 +2001,7 @@ describe('RunStore — promotedAt across a non-recovering load', () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('a reader that fails interrupted queued runs also retires their "Run next" mark', () => {
+  it('a reader that fails interrupted queued runs also retires their "Run First" mark', () => {
     const store = RunStore.open(dataDir);
     const id = store.createRun({ title: 't', workflow: 'quick-task', task: 't', steps: [] }).id;
     store.updateRun(id, { status: 'queued', promotedAt: '2026-09-23T10:00:00.000Z' });

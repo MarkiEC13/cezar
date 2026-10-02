@@ -1278,7 +1278,7 @@ export async function cancelRun(id: string): Promise<CancelResponse> {
 }
 
 /**
- * "Run next": move a queued task to the front of its queue so it takes the first free slot
+ * "Run First": move a queued task to the front of its queue so it takes the first free slot
  * (never past a cap). Answers the updated record; a run that is no longer queued is a 409.
  */
 export async function promoteRun(id: string): Promise<RunRecord> {
