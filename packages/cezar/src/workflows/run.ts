@@ -1950,10 +1950,16 @@ export class RunManager {
    * working. Delivered into the still-open session so the run is working again, not parking —
    * a task that never parks still hears its parent within one turn. Not on a turn that asked: a
    * run parking on the Guard waits for the human, and a message must not stand in for the answer.
+   *
+   * The ask is read through `turnEndMarkerText` (#997), the same normalization `resolveAskTurn`
+   * uses: this guard runs BEFORE the ask is resolved, and a delivery sets `rePrompted` — which
+   * auto-continues the turn and suppresses the ask card entirely. Reading the raw text here
+   * would let a question with a trailing `CEZ:PR=` line be answered by a sibling's message
+   * instead of by the human, which is exactly what this guard exists to prevent.
    */
   private deliverOwnInbox(runId: string, state: ActiveRun, stepId: string, turnText: string): boolean {
     if (!state.autonomous || state.cancelled || !state.session?.open) return false;
-    if (parseAskMarker(turnText) !== null) return false;
+    if (parseAskMarker(turnEndMarkerText(turnText)) !== null) return false;
     if ((state.autoContinues ?? 0) >= MAX_AUTO_CONTINUES) return false;
     const digest = this.flushInbox(runId);
     if (!digest || !state.session.sendMessage([{ type: 'text', text: digest }])) return false;
