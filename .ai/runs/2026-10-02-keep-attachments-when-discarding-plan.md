@@ -16,8 +16,8 @@ Risks: The route state and wire attachment types differ; the submit parameter mu
 
 ### Phase 1: Reproduce and implement
 
-- [ ] 1.1 Add failing regression coverage for plan attachment restoration and post-start cleanup
-- [ ] 1.2 Restore the route attachment chips after successful planning and clear consumed attachments after Start
+- [x] 1.1 Add failing regression coverage for plan attachment restoration and post-start cleanup — dad2012d
+- [x] 1.2 Restore the route attachment chips after successful planning and clear consumed attachments after Start — dad2012d
 
 ### Phase 2: Validate and ship
 
