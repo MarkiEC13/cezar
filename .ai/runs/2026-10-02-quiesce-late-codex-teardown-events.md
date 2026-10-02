@@ -17,8 +17,8 @@ Non-goals: `run.ts`, `mock-claude.mjs`, CI reporter changes, broad RunStore erro
 
 ### Phase 1: Reproduce and fix
 
-- [ ] 1.1 Add a deterministic regression proving teardown does not deliver late Codex events into a removed store.
-- [ ] 1.2 Gate Codex event delivery at teardown without swallowing live callback failures.
+- [x] 1.1 Add a deterministic regression proving teardown does not deliver late Codex events into a removed store. — f2baa15d
+- [x] 1.2 Gate Codex event delivery at teardown without swallowing live callback failures. — f2baa15d
 
 ### Phase 2: Verify and ship
 
@@ -34,8 +34,8 @@ Suppressing post-teardown lifecycle events is intentional: the owning run is alr
 
 ### Phase 1: Reproduce and fix
 
-- [ ] 1.1 Add a deterministic regression proving teardown does not deliver late Codex events into a removed store.
-- [ ] 1.2 Gate Codex event delivery at teardown without swallowing live callback failures.
+- [x] 1.1 Add a deterministic regression proving teardown does not deliver late Codex events into a removed store. — f2baa15d
+- [x] 1.2 Gate Codex event delivery at teardown without swallowing live callback failures. — f2baa15d
 
 ### Phase 2: Verify and ship
 
