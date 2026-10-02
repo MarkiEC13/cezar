@@ -1820,7 +1820,36 @@ describe('the plan flow', () => {
     const runRequests = requests.filter((request) => request.url === '/api/v1/runs' && request.method === 'POST')
     expect(runRequests).toHaveLength(1)
     expect((runRequests[0]?.body as { images?: unknown[] }).images).toHaveLength(1)
+
+    // The route unmounts after Start, so revisit the composer to prove the module-level
+    // per-project attachment store was cleared rather than merely hidden by navigation.
+    cleanup()
+    renderNewTask('/new')
+    await pillReady()
     expect(attachmentChips()).toHaveLength(0)
+  })
+
+  it('restores the attachment when a plan request is rejected', async () => {
+    serve({
+      plan: () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ error: 'planner unavailable' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+    })
+    renderNewTask()
+    await pillReady()
+    fireEvent.click(planToggle())
+    fireEvent.change(textarea(), { target: { value: 'retry this plan' } })
+    paste(textarea(), [pngFile()])
+    await waitFor(() => expect(attachmentChips()).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plan task' }))
+    await waitFor(() => expect(screen.queryByText('Proposed chain')).toBeNull())
+    expect(textarea().value).toBe('retry this plan')
+    expect(attachmentChips()).toHaveLength(1)
   })
 
   it('submit in plan mode POSTs /api/v1/plan (never /api/v1/runs) and opens the review overlay', async () => {
