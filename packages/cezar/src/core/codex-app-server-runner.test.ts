@@ -86,7 +86,7 @@ describe('late Codex teardown events (#1105)', () => {
     new URL('./__fixtures__/codex/mock-codex-app-server.mjs', import.meta.url),
   );
 
-  it('does not emit into a run store removed while a follow-up is pending', async () => {
+  it('does not route a teardown follow-up failure into a removed run store', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cez-1105-'));
     const store = RunStore.open(join(dir, '.ai/cezar'));
     const run = store.createRun({
