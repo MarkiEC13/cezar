@@ -31,7 +31,9 @@ Suppressing only the self-inflicted follow-up failure event is intentional: the 
 
 ## Progress
 
-> Convention: `- [ ]` pending, `- [x]` done. Append — `<commit sha>` when a step lands.
+PR: #1230
+
+> Convention: `- [x]` pending, `- [x]` done. Append — `<commit sha>` when a step lands.
 
 ### Phase 1: Reproduce and fix
 
@@ -41,3 +43,7 @@ Suppressing only the self-inflicted follow-up failure event is intentional: the 
 ### Phase 2: Verify and ship
 
 - [x] 2.1 Run targeted and full configured validation, inspect the final diff, and open the PR for #1105. — 64ef54fc
+
+## Final verification
+
+All configured commands passed. Clean full `npm test -- --maxWorkers=2`: 507 files / 8587 tests passed. Test subprocesses removed inherited `CEZ_*` values and used `/tmp`; earlier environment/timing failures are superseded by this green run. Independent final review found no code defects on this implementation. Evidence: https://github.com/open-mercato/cezar/pull/1230#issuecomment-5944225257.
