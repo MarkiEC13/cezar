@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildChildEnv, looksSecret } from './agent-env.ts';
+import { buildChildEnv, isClaudeBackend, looksSecret } from './agent-env.ts';
 
 /**
  * #427: the spawned backend must NOT inherit the full host environment. It
@@ -238,9 +238,9 @@ describe('buildChildEnv — Bedrock/Vertex toggles (#427 review)', () => {
     GOOGLE_CLOUD_PROJECT: 'my-project',
   };
 
-  it('CLAUDE_CODE_USE_BEDROCK=1 forwards the toggle AND the AWS creds it needs', () => {
+  it.each(['claude', 'claude-cli'] as const)('%s forwards the Bedrock toggle AND the AWS creds it needs', backend => {
     const env = buildChildEnv({
-      backend: 'claude',
+      backend,
       source: { PATH: '/usr/bin', CLAUDE_CODE_USE_BEDROCK: '1', ...AWS },
     });
     expect(env.CLAUDE_CODE_USE_BEDROCK).toBe('1');
@@ -272,13 +272,25 @@ describe('buildChildEnv — Bedrock/Vertex toggles (#427 review)', () => {
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined(); // vertex ≠ bedrock
   });
 
-  it('a backend that never sees the toggle never gets the creds either', () => {
+  it('a non-Claude backend cannot unlock creds even when it receives a Claude toggle', () => {
     const env = buildChildEnv({
       backend: 'codex',
       source: { PATH: '/usr/bin', CLAUDE_CODE_USE_BEDROCK: '1', ...AWS },
+      // Simulate a future non-Claude allowlist needing a CLAUDE_-prefixed
+      // variable: receiving the toggle must not grant its credential family.
+      extraEnv: { CLAUDE_CODE_USE_BEDROCK: '1' },
     });
-    expect(env.CLAUDE_CODE_USE_BEDROCK).toBeUndefined();
+    expect(env.CLAUDE_CODE_USE_BEDROCK).toBe('1');
     expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+  });
+
+  it('uses backend identity rather than a CLAUDE_ allowlist prefix for cloud unlocks', () => {
+    // A future non-Claude runner may add CLAUDE_-prefixed settings to its own
+    // allowlist. That must not make it eligible for these credentials.
+    expect(isClaudeBackend('codex')).toBe(false);
+    expect(isClaudeBackend('opencode')).toBe(false);
+    expect(isClaudeBackend('claude')).toBe(true);
+    expect(isClaudeBackend('claude-cli')).toBe(true);
   });
 });
 
