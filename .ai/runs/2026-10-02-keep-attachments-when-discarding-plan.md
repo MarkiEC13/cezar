@@ -21,6 +21,6 @@ Risks: The route state and wire attachment types differ; the submit parameter mu
 
 ### Phase 2: Validate and ship
 
-- [ ] 2.1 Run focused tests, prove red without the fix, then prove green with it
+- [x] 2.1 Run focused tests, prove red without the fix, then prove green with it — 8a578eb5
 - [ ] 2.2 Run the ordered repository validation gate and browser QA evidence
 - [ ] 2.3 Review the PR, finalize labels/body, and report the verified result
