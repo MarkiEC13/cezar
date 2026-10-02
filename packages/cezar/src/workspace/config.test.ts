@@ -1,10 +1,11 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { workspaceConfigPath } from '../paths.ts';
 import {
   atomicTmpPath,
+  atomicWriteJsonSync,
   defaultWorkspaceConfig,
   effectiveSkillsAutoUpdate,
   effectiveComposerDefault,
@@ -201,6 +202,14 @@ describe('workspace config', () => {
     const dir = readdirSync(dirname(workspaceConfigPath()));
     expect(dir.filter((name) => name.endsWith('.tmp'))).toEqual([]);
     expect((await loadWorkspaceConfig()).projects.map((p) => p.id)).toEqual(['cezar']);
+  });
+
+  it('flushes before rename and removes the staging file when rename fails', () => {
+    const target = join(home, 'ui-state.json');
+    mkdirSync(target);
+    writeFileSync(join(target, 'existing'), 'keep');
+    expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow();
+    expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
   });
 
   it('concurrent merge-writes from stale in-memory copies keep both writers projects', async () => {

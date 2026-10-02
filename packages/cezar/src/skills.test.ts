@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   discoverSkills,
   filterImportedTeamSkills,
+  parseFrontmatter,
   readImportedSkills,
   type Skill,
 } from './skills.ts';
@@ -154,6 +155,49 @@ describe('discoverSkills local entrypoints', () => {
 
     expect(skills).toHaveLength(1);
     expect(skills[0]?.source).toBe('agents');
+  });
+});
+
+describe('parseFrontmatter', () => {
+  it('accepts YAML folded and literal descriptions, BOMs, trailing delimiter whitespace, and quoted arrays', () => {
+    const parsed = parseFrontmatter(
+      '\uFEFF---\n' +
+        'name: "say \\\"hi\\\""\n' +
+        'description: >\n' +
+        '  Use when: the build fails\n' +
+        '  and needs investigation.\n' +
+        'tags: ["a, b", c]\n' +
+        '---   \n' +
+        'Body\n',
+    );
+    expect(parsed.frontmatter.name).toBe('say "hi"');
+    expect(parsed.frontmatter.description).toBe('Use when: the build fails and needs investigation.\n');
+    expect(parsed.frontmatter.tags).toEqual(['a, b', 'c']);
+    expect(parsed.body).toBe('Body\n');
+  });
+
+  it('keeps legacy scalar spelling and per-key fallback for unsupported YAML values', () => {
+    const parsed = parseFrontmatter(
+      '---\n' +
+        'name: 0042\n' +
+        'description: FALSE\n' +
+        'interactive: true\n' +
+        'description2: >\n' +
+        '  folded text\n' +
+        'unsupported: null\n' +
+        '---\nBody',
+    );
+    expect(parsed.frontmatter.name).toBe('0042');
+    expect(parsed.frontmatter.description).toBe('FALSE');
+    expect(parsed.frontmatter.interactive).toBe(true);
+    expect(parsed.frontmatter.description2).toBe('folded text\n');
+    expect(parsed.frontmatter.unsupported).toBe('null');
+  });
+
+  it('falls back to the legacy parser for unquoted colon-space values', () => {
+    const parsed = parseFrontmatter('---\ndescription: Use when: the build fails\n---\nBody');
+    expect(parsed.frontmatter.description).toBe('Use when: the build fails');
+    expect(parsed.body).toBe('Body');
   });
 });
 
