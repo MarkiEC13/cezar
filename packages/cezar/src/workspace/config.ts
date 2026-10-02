@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
@@ -365,7 +365,7 @@ export function atomicWriteJsonSync(path: string, value: unknown): void {
   let fd = -1;
   try {
     fd = openSync(tmp, 'w', 0o600);
-    writeSync(fd, `${JSON.stringify(value, null, 2)}\n`, undefined, 'utf8');
+    writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8' });
     fsyncSync(fd);
     closeSync(fd);
     fd = -1;

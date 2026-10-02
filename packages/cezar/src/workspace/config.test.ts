@@ -2,6 +2,34 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const fsTestState = vi.hoisted(() => ({
+  events: [] as string[],
+  failWrite: false,
+  failFsync: false,
+}));
+
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return {
+    ...actual,
+    writeFileSync: (...args: Parameters<typeof actual.writeFileSync>) => {
+      if (fsTestState.failWrite) throw new Error('write failed');
+      fsTestState.events.push('write');
+      return actual.writeFileSync(...args);
+    },
+    fsyncSync: (fd: number) => {
+      fsTestState.events.push('fsync');
+      if (fsTestState.failFsync) throw new Error('fsync failed');
+      return actual.fsyncSync(fd);
+    },
+    renameSync: (...args: Parameters<typeof actual.renameSync>) => {
+      fsTestState.events.push('rename');
+      return actual.renameSync(...args);
+    },
+  };
+});
+
 import { workspaceConfigPath } from '../paths.ts';
 import {
   atomicTmpPath,
@@ -48,6 +76,9 @@ describe('workspace config', () => {
     else process.env.CEZ_SKILLS_AUTO_UPDATE = originalSkillsAutoUpdate;
     rmSync(home, { recursive: true, force: true });
     vi.restoreAllMocks();
+    fsTestState.events.length = 0;
+    fsTestState.failWrite = false;
+    fsTestState.failFsync = false;
   });
 
   const write = (value: unknown) =>
@@ -206,10 +237,29 @@ describe('workspace config', () => {
 
   it('flushes before rename and removes the staging file when rename fails', () => {
     const target = join(home, 'ui-state.json');
-    mkdirSync(target);
-    writeFileSync(join(target, 'existing'), 'keep');
-    expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow();
+    expect(() => atomicWriteJsonSync(target, { ok: true })).not.toThrow();
+    expect(fsTestState.events.slice(-3)).toEqual(['write', 'fsync', 'rename']);
+    expect(readFileSync(target, 'utf8')).toContain('"ok": true');
+
+    mkdirSync(join(home, 'rename-target'));
+    expect(() => atomicWriteJsonSync(join(home, 'rename-target'), { ok: true })).toThrow();
     expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('closes and cleans up after a write or fsync failure', () => {
+    const target = join(home, 'failure.json');
+    fsTestState.failWrite = true;
+    expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow('write failed');
+    expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+
+    fsTestState.failWrite = false;
+    fsTestState.failFsync = true;
+    expect(() => atomicWriteJsonSync(target, { ok: true })).toThrow('fsync failed');
+    expect(readdirSync(home).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+
+    fsTestState.failFsync = false;
+    expect(() => atomicWriteJsonSync(target, { recovered: true })).not.toThrow();
+    expect(readFileSync(target, 'utf8')).toContain('"recovered": true');
   });
 
   it('concurrent merge-writes from stale in-memory copies keep both writers projects', async () => {

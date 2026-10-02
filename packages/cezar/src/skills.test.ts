@@ -163,15 +163,21 @@ describe('parseFrontmatter', () => {
     const parsed = parseFrontmatter(
       '\uFEFF---\n' +
         'name: "say \\\"hi\\\""\n' +
+        "quote: 'it''s fine'\n" +
         'description: >\n' +
         '  Use when: the build fails\n' +
         '  and needs investigation.\n' +
+        'literal: |\n' +
+        '  Line one.\n' +
+        '  Line two.\n' +
         'tags: ["a, b", c]\n' +
         '---   \n' +
         'Body\n',
     );
     expect(parsed.frontmatter.name).toBe('say "hi"');
+    expect(parsed.frontmatter.quote).toBe("it's fine");
     expect(parsed.frontmatter.description).toBe('Use when: the build fails and needs investigation.\n');
+    expect(parsed.frontmatter.literal).toBe('Line one.\nLine two.\n');
     expect(parsed.frontmatter.tags).toEqual(['a, b', 'c']);
     expect(parsed.body).toBe('Body\n');
   });
@@ -192,6 +198,16 @@ describe('parseFrontmatter', () => {
     expect(parsed.frontmatter.interactive).toBe(true);
     expect(parsed.frontmatter.description2).toBe('folded text\n');
     expect(parsed.frontmatter.unsupported).toBe('null');
+  });
+
+  it.each(['42', 'true', '0042', 'FALSE', 'null'])('keeps legacy description spelling for %s', (value) => {
+    const parsed = parseFrontmatter(`---\ndescription: ${value}\n---\nBody`);
+    expect(parsed.frontmatter.description).toBe(value);
+  });
+
+  it('accepts both YAML boolean and legacy string forms of interactive', () => {
+    expect(parseFrontmatter('---\ninteractive: true\n---\n').frontmatter.interactive).toBe(true);
+    expect(parseFrontmatter("---\ninteractive: 'true'\n---\n").frontmatter.interactive).toBe('true');
   });
 
   it('falls back to the legacy parser for unquoted colon-space values', () => {
