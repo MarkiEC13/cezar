@@ -91,7 +91,7 @@ describe('late Codex teardown events (#1105)', () => {
     const store = RunStore.open(join(dir, '.ai/cezar'));
     const run = store.createRun({
       title: 't', workflow: 'quick-task', task: 'check the working tree', runner: 'codex', worktree: false,
-      steps: [{ id: 'task', name: 'Task' }],
+      steps: [{ id: 'task', name: 'Task', kind: 'agent' }],
     });
     const unhandled: unknown[] = [];
     const onUnhandled = (error: unknown) => unhandled.push(error);
