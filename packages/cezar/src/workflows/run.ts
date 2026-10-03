@@ -3278,6 +3278,10 @@ export class RunManager {
     const state = this.active.get(runId);
     if (state?.session?.open) {
       this.clearIdleTimer(state);
+      // Finish is explicit user intent, even if the watchdog callback already ran
+      // and is racing the session-result settlement. Do not let stale inactivity
+      // evidence turn an explicit Finish into the conservative failure fallback.
+      state.idleClosed = undefined;
       // Finish on a run parked mid-workflow on `CEZ:ASK` or `CEZ:MONITORING`
       // (#917, #1076) is an explicit "stop here" — so it settles like every
       // other Finish (`done`, or `review` when the worktree holds changes)

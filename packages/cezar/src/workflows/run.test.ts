@@ -1408,6 +1408,55 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
     vi.useRealTimers();
   });
 
+  it('explicit Finish wins when ordinary inactivity already fired', () => {
+    vi.useFakeTimers();
+    const record = store.createRun({
+      title: 'finish after idle',
+      workflow: 'quick-task',
+      task: 'finish after idle',
+      steps: [{ id: 'task', name: 'Task', kind: 'agent' }],
+    });
+    const ended = vi.fn();
+    const state = { cancelled: false, session: { open: true, end: ended } } as never;
+    const active = (manager as unknown as { active: Map<string, typeof state> }).active;
+    active.set(record.id, state);
+    try {
+      (manager as unknown as { armIdleTimer: (runId: string, state: never) => void }).armIdleTimer(record.id, state);
+      vi.advanceTimersByTime(15 * 60_000);
+      expect((state as { idleClosed?: boolean }).idleClosed).toBe(true);
+      expect(manager.finish(record.id)).toBe(true);
+      expect((state as { idleClosed?: boolean }).idleClosed).toBeUndefined();
+    } finally {
+      active.delete(record.id);
+      vi.useRealTimers();
+    }
+  });
+
+  it('explicit Finish wins when an ASK park watchdog already fired', () => {
+    vi.useFakeTimers();
+    const record = store.createRun({
+      title: 'finish after ask idle',
+      workflow: 'quick-task',
+      task: 'finish after ask idle',
+      steps: [{ id: 'task', name: 'Task', kind: 'agent' }],
+    });
+    const ended = vi.fn();
+    const state = { cancelled: false, askPark: 'waiting', session: { open: true, end: ended } } as never;
+    const active = (manager as unknown as { active: Map<string, typeof state> }).active;
+    active.set(record.id, state);
+    try {
+      (manager as unknown as { armIdleTimer: (runId: string, state: never) => void }).armIdleTimer(record.id, state);
+      vi.advanceTimersByTime(15 * 60_000);
+      expect((state as { idleClosed?: boolean }).idleClosed).toBe(true);
+      expect(manager.finish(record.id)).toBe(true);
+      expect((state as { idleClosed?: boolean }).idleClosed).toBeUndefined();
+      expect((state as { askPark?: string }).askPark).toBe('abandoned');
+    } finally {
+      active.delete(record.id);
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps the configured timeout armed at both new-run and reply continuation parks (#992)', async () => {
     manager.dispose();
     manager = new RunManager(store, repoRoot, {
