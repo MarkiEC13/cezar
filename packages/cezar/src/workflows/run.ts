@@ -357,6 +357,8 @@ interface ActiveRun {
   session?: AgentSession;
   currentStepId?: string;
   idleTimer?: NodeJS.Timeout;
+  /** The inactivity watchdog closed this session; a plain final wait is not success evidence. */
+  idleClosed?: boolean;
   monitoringWakeTimer?: NodeJS.Timeout;
   monitoringWakeIntervalMinutes?: number;
   monitoringWakeups?: number;
@@ -3247,6 +3249,7 @@ export class RunManager {
       this.clearIdleTimer(state);
       this.clearMonitoringWakeTimer(state, runId);
       this.waiting.delete(runId); // resumed — the run counts against slots again
+      state.idleClosed = undefined;
       // A message into the session is a fresh start for the compaction bound (#955): whoever
       // sent it — the user, a child's report, the monitoring wake-up — is asking for work
       // that has not been tried yet, so it must not inherit a spent anti-spin budget.
@@ -3926,6 +3929,17 @@ export class RunManager {
           askParked: undefined,
         });
         this.store.appendEvent(runId, { type: 'lifecycle', message: `run stopped — ${message}` });
+      } else if (state.idleClosed && this.active.get(runId) === state) {
+        const message = this.inactivityFailureMessage();
+        const failedAt = finishedAt();
+        this.store.updateStep(runId, stepId, { status: 'failed', error: message, finishedAt: failedAt });
+        this.store.updateRun(runId, {
+          status: 'failed',
+          error: message,
+          finishedAt: failedAt,
+          currentStepId: undefined,
+        });
+        this.store.appendEvent(runId, { type: 'lifecycle', message: `run stopped — ${message}` });
       } else {
         this.store.updateStep(runId, stepId, { status: 'done', finishedAt: finishedAt() });
         this.store.appendEvent(runId, { type: 'step-end', stepId, status: 'done' });
@@ -4320,6 +4334,16 @@ export class RunManager {
       const error =
         'the session closed before the question was answered — continue to answer it, ' +
         'but the remaining workflow steps will not resume automatically';
+      this.store.updateRun(runId, { status: 'failed', error, finishedAt, currentStepId: undefined });
+      emit({ type: 'lifecycle', message: `run stopped — ${error}` });
+    } else if (state.idleClosed) {
+      const error = this.inactivityFailureMessage();
+      const run = this.store.getRun(runId);
+      for (const s of run?.steps ?? []) {
+        if (s.status === 'running' || s.status === 'waiting') {
+          this.store.updateStep(runId, s.id, { status: 'failed', error, finishedAt });
+        }
+      }
       this.store.updateRun(runId, { status: 'failed', error, finishedAt, currentStepId: undefined });
       emit({ type: 'lifecycle', message: `run stopped — ${error}` });
     } else {
@@ -5109,6 +5133,16 @@ export class RunManager {
   }
 
   /**
+   * Inactivity is bounded local evidence that the last turn did not explicitly
+   * settle the task. DONE/ASK/MONITORING branches run first; this conservative
+   * fallback keeps an ordinary unfinished wait from wearing a success badge
+   * while preserving the existing Continue path.
+   */
+  private inactivityFailureMessage(): string {
+    return 'the session closed after inactivity before the task declared completion — continue to resume it';
+  }
+
+  /**
    * Persist every attachment a user message carries — images and files alike (#950) — into the
    * run's own attachment folder, in the order they were attached. The returned paths are what the
    * agent is told about; the caller decides which of them also ride along as viewable blocks.
@@ -5405,6 +5439,7 @@ export class RunManager {
     const timeoutMs = timeoutMinutes * 60_000;
     state.idleTimer = setTimeout(() => {
       if (state.session?.open && !state.cancelled) {
+        state.idleClosed = true;
         this.store.appendEvent(runId, {
           type: 'lifecycle',
           message: `session closed after ${Math.round(timeoutMs / 60_000)}m of inactivity`,

@@ -1377,6 +1377,7 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
     expect(ended).not.toHaveBeenCalled();
     vi.advanceTimersByTime(60_000);
     expect(ended).toHaveBeenCalledOnce();
+    expect((state as { idleClosed?: boolean }).idleClosed).toBe(true);
     expect(readEvents(record.id).some((event) => event.message === 'session closed after 15m of inactivity')).toBe(true);
     vi.useRealTimers();
   });
@@ -1526,6 +1527,37 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
 
     await waitFor(record.id, (r) => r?.status === 'failed');
     expect(store.getRun(record.id)?.error).toContain('before the question was answered');
+  }, 30_000);
+
+  it('settles an ordinary final wait as failed when inactivity closes the session', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'just do the thing', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+
+    const active = (manager as unknown as {
+      active: Map<string, { idleClosed?: boolean; session?: { end(): void } }>;
+    }).active.get(record.id);
+    active!.idleClosed = true;
+    active!.session!.end();
+
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.error).toContain('after inactivity');
+    expect(manager.isActive(record.id)).toBe(false);
+  }, 30_000);
+
+  it('clears stale inactivity evidence when a continuation answer arrives', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'just do the thing', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+
+    const active = (manager as unknown as {
+      active: Map<string, { idleClosed?: boolean }>;
+    }).active.get(record.id)!;
+    active.idleClosed = true;
+    expect(manager.sendMessage(record.id, [{ type: 'text', text: 'mock:done finish it' }])).toBe(true);
+
+    await waitFor(record.id, (r) => r?.status === 'done');
+    expect(manager.isActive(record.id)).toBe(false);
   }, 30_000);
 
   it('cancelling an active run before its session opens is durable and releases the slot', () => {

@@ -18,6 +18,12 @@ Non-goals: no LLM classifier, new status, environment variable, server change, e
 - [x] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior. — ce07eeaf
 - [x] 2.2 Run targeted and full validation, review the diff, and publish the PR. — CI green; local npm test has 10 unrelated fixture/environment failures
 
+### Phase 3: Conservative ordinary-wait settlement
+
+- [x] 3.1 Track watchdog-driven closure separately from explicit Finish and preserve marker precedence. — pending commit
+- [x] 3.2 Add ordinary-wait and reply-race regression coverage; run the focused lifecycle gate. — pending commit
+- [x] 3.3 Update PR evidence and handoff with the bounded local-evidence fallback. — pending commit
+
 ## Risks
 
 The marker is shared with recovery and continuation settlement; tests must preserve ordinary final interactive waiting and explicit Finish semantics.
@@ -28,10 +34,10 @@ The marker is shared with recovery and continuation settlement; tests must prese
 
 ### Phase 1: Reproduce and guard the lifecycle
 
-- [ ] 1.1 Reproduce the final interactive ask timeout path and document the root cause in the test.
-- [ ] 1.2 Add a focused regression test proving an unanswered final ask settles as failed.
+- [x] 1.1 Reproduce the final interactive ask timeout path and document the root cause in the test. — ce07eeaf
+- [x] 1.2 Add a focused regression test proving an unanswered final ask settles as failed. — ce07eeaf
 
 ### Phase 2: Minimal fix and verification
 
-- [ ] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior.
-- [ ] 2.2 Run targeted and full validation, review the diff, and publish the PR.
+- [x] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior. — ce07eeaf
+- [x] 2.2 Run targeted and full validation, review the diff, and publish the PR. — 5be11f0
