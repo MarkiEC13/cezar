@@ -41,8 +41,8 @@ The change is limited to one field in the existing atomic workspace-config merge
 
 ### Phase 2: Fix and regression coverage
 
-- [ ] 2.1 Add the idle-timeout merge assignment and dedicated route regression test.
-- [ ] 2.2 Run targeted validation and prove the regression fails without the fix.
+- [x] 2.1 Add the idle-timeout merge assignment and dedicated route regression test. — 338571f7
+- [x] 2.2 Run targeted validation and prove the regression fails without the fix. — 338571f7 (unfixed 1 failed/53 passed; fixed 54 passed)
 
 ### Phase 3: Gate and review
 
