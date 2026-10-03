@@ -3258,7 +3258,7 @@ export class RunManager {
       state.askPark = undefined;
       // Clear any `monitoring` activity — the agent is actively working again
       // (spec 2026-07-18-subagent-monitoring-status, #490).
-      this.store.updateRun(runId, { status: 'running', activity: undefined });
+      this.store.updateRun(runId, { status: 'running', activity: undefined, askParked: undefined });
       if (state.currentStepId) {
         this.store.updateStep(runId, state.currentStepId, { status: 'running' });
       }
@@ -3698,6 +3698,7 @@ export class RunManager {
             // lifecycle (free the slot), while only plain waiting keeps the idle timer. Monitoring is
             // checked before the autonomous nudge, so it remains non-attention.
             if (ask) this.recordAsk(runId, sink, ask);
+            if (ask) state.askPark = 'waiting';
             if (monitoring) {
               this.store.updateRun(runId, { status: 'running', activity: 'monitoring' });
               this.store.updateStep(runId, stepId, { status: 'running' });
@@ -3707,7 +3708,7 @@ export class RunManager {
               this.clearIdleTimer(state);
               this.armMonitoringWakeTimer(runId, state);
             } else {
-              this.store.updateRun(runId, { status: 'waiting', activity: undefined });
+              this.store.updateRun(runId, { status: 'waiting', activity: undefined, askParked: ask ? true : undefined });
               this.store.updateStep(runId, stepId, { status: 'waiting' });
               this.leaveMonitoring(runId);
               this.clearMonitoringWakeTimer(state, runId);
@@ -3911,6 +3912,20 @@ export class RunManager {
         this.store.updateRun(runId, { status: 'cancelled', finishedAt: finishedAt(), currentStepId: undefined });
         this.store.appendEvent(runId, { type: 'lifecycle', message: 'run cancelled' });
         appendHandoffHeartbeat(this.dataDir, runId, `step "${stepId}" complete — status=cancelled`);
+      } else if (state.askPark === 'waiting' && this.active.get(runId) === state) {
+        const message =
+          'the session closed before the question was answered — continue to answer it, ' +
+          'but the remaining workflow steps will not resume automatically';
+        const failedAt = finishedAt();
+        this.store.updateStep(runId, stepId, { status: 'failed', error: message, finishedAt: failedAt });
+        this.store.updateRun(runId, {
+          status: 'failed',
+          error: message,
+          finishedAt: failedAt,
+          currentStepId: undefined,
+          askParked: undefined,
+        });
+        this.store.appendEvent(runId, { type: 'lifecycle', message: `run stopped — ${message}` });
       } else {
         this.store.updateStep(runId, stepId, { status: 'done', finishedAt: finishedAt() });
         this.store.appendEvent(runId, { type: 'step-end', stepId, status: 'done' });
@@ -4569,7 +4584,7 @@ export class RunManager {
           // Inside the `!autoContinued` branch on purpose: a nudged autonomous
           // turn did not park, so it must not leave a park behind for `execute`
           // to settle.
-          if (parksWorkflow) state.askPark = 'waiting';
+          if (ask) state.askPark = 'waiting';
           if (monitoring) {
             this.store.updateRun(runId, { status: 'running', activity: 'monitoring' });
             this.store.updateStep(runId, step.id, { status: 'running' });
@@ -4585,7 +4600,7 @@ export class RunManager {
               // The durable half of the park, and the only thing a restart can
               // read: without it `recover()` cannot tell this `waiting` from a
               // finished interactive session and settles it as a success.
-              askParked: parksWorkflow ? true : undefined,
+              askParked: ask ? true : undefined,
             });
             this.store.updateStep(runId, step.id, { status: 'waiting' });
             this.leaveMonitoring(runId);

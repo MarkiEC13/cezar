@@ -1505,11 +1505,27 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
     const record = manager.startRun(SINGLE_STEP, { task: 'mock:ask which library?', worktree: false });
     currentId = record.id;
     await waitFor(record.id, (r) => r?.status === 'waiting');
-    expect(store.getRun(record.id)?.askParked).toBeUndefined(); // not a mid-workflow park
+    expect(store.getRun(record.id)?.askParked).toBe(true); // final ASK parks for idle settlement too
 
     expect(manager.cancel(record.id)).toBe(true);
     await waitFor(record.id, (r) => r?.status === 'cancelled');
     await vi.waitFor(() => expect(manager.isActive(record.id)).toBe(false), { timeout: 15_000 });
+  }, 30_000);
+
+  it('settles an unanswered final interactive ask as failed when its idle session closes', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'mock:ask which library?', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+    expect(store.getRun(record.id)?.askParked).toBe(true);
+
+    const live = (manager as unknown as {
+      active: Map<string, { session?: { end(): void; readonly open: boolean } }>;
+    }).active.get(record.id);
+    expect(live?.session?.open).toBe(true);
+    live!.session!.end();
+
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.error).toContain('before the question was answered');
   }, 30_000);
 
   it('cancelling an active run before its session opens is durable and releases the slot', () => {
