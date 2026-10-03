@@ -27,7 +27,7 @@ Give the workflow step-rail disclosure trigger an effective 44px touch target on
 ### Phase 2: Verification and handoff
 
 - [ ] 2.1 Run targeted web step-rail tests and inspect the diff.
-- [ ] 2.2 Run the configured repository validation gate and fix any failures.
+- [x] 2.2 Run the configured repository validation gate and fix any failures. — aac274cc
 - [ ] 2.3 Complete authoritative PR review, summarize evidence, and mark the PR ready.
 
 ## Risks
