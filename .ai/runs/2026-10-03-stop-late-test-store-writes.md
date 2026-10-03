@@ -16,7 +16,7 @@ Non-goals: changes to `packages/cezar/src/workflows/run.ts`, `server.ts`, `RunSt
 ### Phase 2: Migrate workflow suites and verify
 
 - [x] 2.1 Replace existing workflow teardown cleanup with the shared helper in issue #1148 suites. — f3dc8eb7
-- [ ] 2.2 Run targeted and full validation, inspect scope, and record evidence.
+- [x] 2.2 Run targeted and full validation, inspect scope, and record evidence. — 9da43d73
 
 ## Risks
 
