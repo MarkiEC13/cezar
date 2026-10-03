@@ -23,8 +23,8 @@ Goal: Make PUT /api/v1/workspace/config persist resources.idleTimeoutMinutes, in
 
 ### Phase 3: Gate and review
 
-- [ ] 3.1 Run the configured full validation gate and resolve failures.
-- [ ] 3.2 Complete authoritative PR review, summarize evidence, and mark the PR ready.
+- [x] 3.1 Run the configured full validation gate and resolve failures. — GitHub CI run 37085146700 passed all configured Unit/build/E2E/package checks; local parallel Vitest still exhibits unrelated isolation failures.
+- [x] 3.2 Complete authoritative PR review, summarize evidence, and mark the PR ready. — internal review found no actionable findings; CI green; PR promoted to ready.
 
 ## Risks
 
@@ -46,5 +46,5 @@ The change is limited to one field in the existing atomic workspace-config merge
 
 ### Phase 3: Gate and review
 
-- [ ] 3.1 Run the configured full validation gate and resolve failures.
-- [ ] 3.2 Complete authoritative PR review, summarize evidence, and mark the PR ready.
+- [x] 3.1 Run the configured full validation gate and resolve failures. — CI run 37085146700 passed.
+- [x] 3.2 Complete authoritative PR review, summarize evidence, and mark the PR ready. — no actionable findings; ready promotion follows.
