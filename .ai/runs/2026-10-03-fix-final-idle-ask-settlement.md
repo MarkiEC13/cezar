@@ -16,7 +16,7 @@ Non-goals: no LLM classifier, new status, environment variable, server change, e
 ### Phase 2: Minimal fix and verification
 
 - [x] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior. — ce07eeaf
-- [ ] 2.2 Run targeted and full validation, review the diff, and publish the PR.
+- [x] 2.2 Run targeted and full validation, review the diff, and publish the PR. — CI green; local npm test has 10 unrelated fixture/environment failures
 
 ## Risks
 
