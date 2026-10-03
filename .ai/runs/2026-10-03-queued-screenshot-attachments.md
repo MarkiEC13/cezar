@@ -26,7 +26,7 @@ Fix issue #926 so pasting a screenshot into a queued task's follow-up composer u
 ### Phase 2: Fix and verify
 
 - [x] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope — no source change is warranted because the fix is already on `main`; added coverage instead.
-- [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
+- [x] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep. — focused 50 passed; typecheck/unit/build/package passed; full npm test 503 files passed, 15 unrelated failures
 
 ## Risks
 
@@ -36,12 +36,14 @@ Fix issue #926 so pasting a screenshot into a queued task's follow-up composer u
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
+PR: #1246
+
 ### Phase 1: Reproduce and isolate
 
-- [ ] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed`.
-- [ ] 1.2 Add a focused regression test that fails against the current implementation.
+- [x] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed`. — 281cb497
+- [x] 1.2 Add a focused regression test that fails against the current implementation. — 281cb497
 
 ### Phase 2: Fix and verify
 
-- [ ] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope.
+- [x] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope. — 281cb497
 - [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
