@@ -32,8 +32,8 @@ function formatAnswer(question: UiAskQuestion, labels: string[]): string {
 export function AskCard({ ask, run }: { ask: ThreadAsk; run: ApiRun }) {
   // Answered — by Send or by a free-form reply in the composer — so the held picks are spent.
   useEffect(() => {
-    if (ask.resolved) forgetAskSelections(run.id, ask.id)
-  }, [ask.resolved, ask.id, run.id])
+    if (ask.resolved) forgetAskSelections(run.id, ask)
+  }, [ask, run.id])
   // An answered card is a static summary — split so the delivery hook (two mutations and a
   // provider-status subscription) only mounts for a question that can still be answered.
   // Threads accumulate asks; every resolved one would otherwise carry live machinery for a
@@ -65,13 +65,14 @@ function PendingAsk({ ask, run }: { ask: ThreadAsk; run: ApiRun }) {
   const oneTap = questions.length === 1 && questions[0]?.multiSelect !== true
   // Seeded from, and mirrored into, the store outside the card: the thread unmounts this row
   // whenever it scrolls out of a virtualized viewport, and the picks must outlive that (#1247).
-  const [selections, setSelections] = useState<AskSelections>(() => readAskSelections(run.id, ask.id))
+  const [selections, setSelections] = useState<AskSelections>(() => readAskSelections(run.id, ask))
 
-  const setQuestion = (index: number, labels: string[]) => {
-    const next = { ...selections, [index]: labels }
-    writeAskSelections(run.id, ask.id, next)
-    setSelections(next)
-  }
+  const setQuestion = (index: number, labels: string[]) =>
+    setSelections((prev) => {
+      const next = { ...prev, [index]: labels }
+      writeAskSelections(run.id, ask, next)
+      return next
+    })
 
   const answered = (index: number) => (selections[index]?.length ?? 0) > 0
   const allAnswered = questions.every((_, index) => answered(index))

@@ -237,14 +237,35 @@ describe('AskCard — picks survive the row unmounting', () => {
   it('drops the held picks once the ask resolves', () => {
     const { rerender } = renderAsk(twoQuestionAsk)
     fireEvent.click(screen.getByRole('button', { name: /date-fns/ }))
-    expect(readAskSelections('r1', 'ask_3')).toEqual({ 0: ['date-fns'] })
+    expect(readAskSelections('r1', twoQuestionAsk)).toEqual({ 0: ['date-fns'] })
 
     rerender(
       <MemoryRouter>
         <AskCard ask={{ ...twoQuestionAsk, resolved: true, answer: 'free-form reply' }} run={activeRun} />
       </MemoryRouter>,
     )
-    expect(readAskSelections('r1', 'ask_3')).toEqual({})
+    expect(readAskSelections('r1', twoQuestionAsk)).toEqual({})
+  })
+
+  // Codex names asks `codex-<rpc id>`, a counter that restarts with its app-server, so a
+  // Continue can reuse an id within one run for a different question.
+  it('a reused ask id with different questions neither inherits nor wipes the old picks', () => {
+    const first = renderAsk(twoQuestionAsk)
+    fireEvent.click(screen.getByRole('button', { name: /date-fns/ }))
+    first.unmount()
+
+    const reused: ThreadAsk = {
+      ...twoQuestionAsk,
+      questions: [
+        { header: 'Host', question: 'Which host?', options: [{ label: 'date-fns' }, { label: 'Fly' }] },
+        { header: 'Region', question: 'Which region?', options: [{ label: 'EU' }, { label: 'US' }] },
+      ],
+    }
+    renderAsk(reused)
+    expect(screen.getByRole('button', { name: /date-fns/ }).getAttribute('aria-pressed')).toBe('false')
+    cleanup()
+    renderAsk({ ...reused, resolved: true, answer: 'Host: Fly' })
+    expect(readAskSelections('r1', twoQuestionAsk)).toEqual({ 0: ['date-fns'] })
   })
 
   it('a half-answered card names the questions still missing a pick', () => {
