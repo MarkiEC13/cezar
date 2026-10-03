@@ -1,0 +1,47 @@
+# Fix queued-task screenshot attachments
+
+## Goal
+
+Fix issue #926 so pasting a screenshot into a queued task's follow-up composer uploads and submits successfully instead of showing `Load failed`.
+
+## Scope
+
+- Trace the queued-task attachment upload and message submission path in the cockpit and server.
+- Add the smallest fix needed for queued messages with attachments.
+- Add focused regression coverage for the failing queued attachment path and preserve existing text-only behavior.
+
+## Non-goals
+
+- Workspace idle-timeout settings or closure behavior.
+- Workflow idle settlement, test cleanup helpers, or step-rail UI.
+- Broad attachment refactors, unrelated server routes, or changes to the initial new-task composer.
+
+## Implementation Plan
+
+### Phase 1: Reproduce and isolate
+
+- [ ] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed`.
+- [ ] 1.2 Add a focused regression test that fails against the current implementation.
+
+### Phase 2: Fix and verify
+
+- [ ] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope.
+- [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
+
+## Risks
+
+- Queued and live message paths share attachment contracts; the fix must not alter live-session uploads or text-only queueing.
+
+## Progress
+
+> Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
+
+### Phase 1: Reproduce and isolate
+
+- [ ] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed`.
+- [ ] 1.2 Add a focused regression test that fails against the current implementation.
+
+### Phase 2: Fix and verify
+
+- [ ] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope.
+- [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
