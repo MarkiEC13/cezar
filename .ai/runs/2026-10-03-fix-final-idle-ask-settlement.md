@@ -20,9 +20,9 @@ Non-goals: no LLM classifier, new status, environment variable, server change, e
 
 ### Phase 3: Conservative ordinary-wait settlement
 
-- [x] 3.1 Track watchdog-driven closure separately from explicit Finish and preserve marker precedence. — pending commit
-- [x] 3.2 Add ordinary-wait and reply-race regression coverage; run the focused lifecycle gate. — pending commit
-- [x] 3.3 Update PR evidence and handoff with the bounded local-evidence fallback. — pending commit
+- [x] 3.1 Track watchdog-driven closure separately from explicit Finish and preserve marker precedence. — e3ca192a
+- [x] 3.2 Add ordinary-wait and reply-race regression coverage; run the focused lifecycle gate. — e3ca192a; run.test.ts 148/148
+- [x] 3.3 Update PR evidence and handoff with the bounded local-evidence fallback. — docs(runs) commit pending
 
 ## Risks
 
