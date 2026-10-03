@@ -18,8 +18,8 @@ Goal: Make PUT /api/v1/workspace/config persist resources.idleTimeoutMinutes, in
 
 ### Phase 2: Fix and regression coverage
 
-- [ ] 2.1 Add the idle-timeout merge assignment and dedicated route regression test.
-- [ ] 2.2 Run targeted validation and prove the regression fails without the fix.
+- [x] 2.1 Add the idle-timeout merge assignment and dedicated route regression test. — 338571f7
+- [x] 2.2 Run targeted validation and prove the regression fails without the fix. — unfixed code: 1 failed, 53 passed; fixed code: 54 passed. `npm install --ignore-scripts` was required to refresh stale dependencies.
 
 ### Phase 3: Gate and review
 
