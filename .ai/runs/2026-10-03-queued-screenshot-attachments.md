@@ -20,12 +20,12 @@ Fix issue #926 so pasting a screenshot into a queued task's follow-up composer u
 
 ### Phase 1: Reproduce and isolate
 
-- [ ] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed`.
-- [ ] 1.2 Add a focused regression test that fails against the current implementation.
+- [x] 1.1 Trace queued composer upload/message calls and identify the request/response mismatch causing `Load failed` — current `main` already contains the queued attachment persistence/dequeue fix; duplicate PR #1209 reached the same conclusion.
+- [x] 1.2 Add a focused regression test that fails against the current implementation — exact queued screenshot coverage added; it guards the already-landed behavior.
 
 ### Phase 2: Fix and verify
 
-- [ ] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope.
+- [x] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope — no source change is warranted because the fix is already on `main`; added coverage instead.
 - [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
 
 ## Risks
