@@ -10,12 +10,12 @@ Non-goals: no LLM classifier, new status, environment variable, server change, e
 
 ### Phase 1: Reproduce and guard the lifecycle
 
-- [ ] 1.1 Reproduce the final interactive ask timeout path and document the root cause in the test.
-- [ ] 1.2 Add a focused regression test proving an unanswered final ask settles as failed.
+- [x] 1.1 Reproduce the final interactive ask timeout path and document the root cause in the test. — red proof: unfixed test timed out waiting for failed settlement
+- [x] 1.2 Add a focused regression test proving an unanswered final ask settles as failed. — 1b6a0e9
 
 ### Phase 2: Minimal fix and verification
 
-- [ ] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior.
+- [x] 2.1 Persist the ask park marker for final interactive asks and preserve ordinary waiting/finish behavior. — 1b6a0e9
 - [ ] 2.2 Run targeted and full validation, review the diff, and publish the PR.
 
 ## Risks
