@@ -46,4 +46,8 @@ PR: #1246
 ### Phase 2: Fix and verify
 
 - [x] 2.1 Implement the minimal queued attachment fix within the allowed attachment/message scope. — 281cb497
-- [ ] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
+- [x] 2.2 Run focused tests, then the configured full validation gate; review the final diff for scope creep.
+
+## Final outcome
+
+This is regression coverage, not a new production fix: current main already satisfies the reported queued screenshot path. The step 1.2 test is a guard test and is not claimed to fail on current main. Independent reviewer c51d3a41 accepted source at f5fa168b; parent independently passed all 50 focused tests. Hosted Unit/build/E2E/package CI passed. Local full Vitest failures remain disclosed on the PR.
