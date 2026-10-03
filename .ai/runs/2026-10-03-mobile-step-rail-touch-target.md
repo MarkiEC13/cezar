@@ -38,7 +38,7 @@ An absolutely positioned hit-area overlay could intercept adjacent controls if i
 
 PR: #1244
 
-> Convention: `- [ ]` pending, `- [x]` done. Append — `<commit sha>` when a step lands. Do not rename step titles.
+> Convention: `- [x]` pending, `- [x]` done. Append — `<commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Baseline and implementation
 
@@ -49,5 +49,8 @@ PR: #1244
 ### Phase 2: Verification and handoff
 
 - [x] 2.1 Run targeted web step-rail tests and inspect the diff. — dfc39834
-- [ ] 2.2 Run the configured repository validation gate and fix any failures.
-- [ ] 2.3 Complete authoritative PR review, summarize evidence, and mark the PR ready.
+- [x] 2.2 Run the configured repository validation gate and fix any failures.
+- [x] 2.3 Complete authoritative PR review, summarize evidence, and mark the PR ready.
+
+
+Independent review c51d3a41 approved source at ac542a38. Parent reproduced focused tests. Hosted full CI passed; local full Vitest environmental failures remain documented on the PR and were not changed out of scope. Final artifact update completes tracking and readiness only.
