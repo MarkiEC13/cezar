@@ -10,12 +10,12 @@ Non-goals: changes to `packages/cezar/src/workflows/run.ts`, `server.ts`, `RunSt
 
 ### Phase 1: Reproduce and establish cleanup seam
 
-- [ ] 1.1 Confirm the late-write race and add a meaningful test-only regression.
-- [ ] 1.2 Add a shared test cleanup helper that flushes and blocks late schedules.
+- [x] 1.1 Confirm the late-write race and add a meaningful test-only regression. — f3dc8eb7
+- [x] 1.2 Add a shared test cleanup helper that flushes and blocks late schedules. — f3dc8eb7
 
 ### Phase 2: Migrate workflow suites and verify
 
-- [ ] 2.1 Replace existing workflow teardown cleanup with the shared helper in issue #1148 suites.
+- [x] 2.1 Replace existing workflow teardown cleanup with the shared helper in issue #1148 suites. — f3dc8eb7
 - [ ] 2.2 Run targeted and full validation, inspect scope, and record evidence.
 
 ## Risks
