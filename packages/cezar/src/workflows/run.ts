@@ -3885,9 +3885,9 @@ export class RunManager {
         cwd: state.cwd,
         allowedTools: toolsStep?.allowedTools ?? DEFAULT_ALLOWED_TOOLS,
         bashAllowlist: toolsStep?.bashAllowlist,
-        additionalDirectories: agentDirectories(
-          join(this.dataDir, 'runs'),
-          state.grantedAttachmentLibrary,
+          additionalDirectories: agentDirectories(
+            join(this.dataDir, 'runs'),
+            state.grantedAttachmentLibrary,
           continueProfile.env,
         ),
         env: continueProfile.env,
