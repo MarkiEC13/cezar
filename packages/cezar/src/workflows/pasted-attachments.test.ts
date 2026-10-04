@@ -847,6 +847,9 @@ describe('pasted screenshots materialize to disk and reach the agent as file pat
 
   it('a follow-up pasted image is saved and its path is appended to the delivered message', async () => {
     writeFileSync(stdinFile, '', 'utf8');
+    // Reproduce #987's first-use case: the live session starts before any named attachment has
+    // created the project library. Its fixed grant must still include the directory.
+    rmSync(attachmentLibraryDir(dataDir), { recursive: true, force: true });
     // A single agent step with no trailing check stays interactive — it parks
     // at `waiting` after its first turn so a follow-up can be sent.
     const workflow: WorkflowDef = {
@@ -856,6 +859,10 @@ describe('pasted screenshots materialize to disk and reach the agent as file pat
     };
     const record = manager.startRun(workflow, { task: 'chat with me' });
     await waitForStatus(record.id, ['waiting']);
+
+    const initialArgs = JSON.parse(readFileSync(argsFile, 'utf8').trim().split('\n')[0] as string) as string[];
+    const initialGranted = initialArgs.flatMap((arg, i) => (arg === '--add-dir' ? [initialArgs[i + 1] as string] : []));
+    expect(initialGranted).toContain(attachmentLibraryDir(dataDir));
 
     const state = (manager as unknown as {
       active: Map<string, { session: { sendMessage(content: ContentBlock[]): boolean } }>;
@@ -883,6 +890,7 @@ describe('pasted screenshots materialize to disk and reach the agent as file pat
     const followUp = lines.find((line) => line.userText.includes('here is a screenshot'));
     expect(followUp).toBeDefined();
     expect(followUp?.userText).toContain('The user attached 1 pasted file, also saved on disk at:');
+    expect(followUp?.userText).toContain(`kept under their original names in ${attachmentLibraryDir(dataDir)}`);
 
     // The mock's own turn-1 tool screenshot shares the same on-disk counter, so
     // this pasted follow-up doesn't have to land on seq 1 — it must land on

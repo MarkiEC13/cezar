@@ -3238,7 +3238,7 @@ export class RunManager {
     const expanded = userAuthored ? expandRegistrySlashSkill(blocks, state.skills ?? []) : blocks;
     const deliverable = persisted.length
       ? [...expanded, pastedAttachmentsNote(persisted, this.attachmentLibraryHint(persisted) ??
-          (imageLibraryWrites.length ? attachmentLibraryDir(this.dataDir) : undefined))]
+          (imageLibraryWrites.length ? this.usableAttachmentLibrary() : undefined))]
       : expanded;
     const delivered = state.session.sendMessage(deliverable);
     if (delivered) {
@@ -3883,7 +3883,7 @@ export class RunManager {
         bashAllowlist: toolsStep?.bashAllowlist,
         additionalDirectories: agentDirectories(
           join(this.dataDir, 'runs'),
-          this.grantableAttachmentLibrary(),
+          this.prepareAttachmentLibrary(),
           continueProfile.env,
         ),
         env: continueProfile.env,
@@ -4717,7 +4717,7 @@ export class RunManager {
           // The handoff file lives outside the worktree — grant access.
           additionalDirectories: agentDirectories(
             join(this.dataDir, 'runs'),
-            this.grantableAttachmentLibrary(),
+            this.prepareAttachmentLibrary(),
             stepProfile.env,
           ),
           env: stepProfile.env,
@@ -5160,6 +5160,23 @@ export class RunManager {
   }
 
   /**
+   * A session's filesystem grants are fixed when it starts, but the first named follow-up may
+   * create the library only after that session is already live (#987). Prepare the directory at
+   * both session construction sites so a later message can use the grant. Best effort: a
+   * read-only data directory simply leaves the library unavailable; the run-folder attachment
+   * remains the source of truth.
+   */
+  private prepareAttachmentLibrary(): string | undefined {
+    const dir = attachmentLibraryDir(this.dataDir);
+    try {
+      mkdirSync(dir, { recursive: true });
+      return dir;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * The attachment library to name in a message's note, or `undefined` when there is nothing to
    * point at yet — no attachment on this message, or a project where nothing has ever been filed.
    *
@@ -5167,7 +5184,30 @@ export class RunManager {
    * directory hint therefore depends on persisted attachments and library existence.
    */
   private attachmentLibraryHint(attachments: PersistedAttachment[]): string | undefined {
-    return attachments.length ? this.grantableAttachmentLibrary() : undefined;
+    if (!attachments.length) return undefined;
+    return this.usableAttachmentLibraryWithEntries();
+  }
+
+  /** A library path that can be inspected, for truthful prompt hints only. */
+  private usableAttachmentLibrary(): string | undefined {
+    const dir = this.grantableAttachmentLibrary();
+    if (!dir) return undefined;
+    try {
+      readdirSync(dir);
+      return dir;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private usableAttachmentLibraryWithEntries(): string | undefined {
+    const dir = this.usableAttachmentLibrary();
+    if (!dir) return undefined;
+    try {
+      return readdirSync(dir).length ? dir : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
