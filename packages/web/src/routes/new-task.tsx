@@ -34,7 +34,7 @@ import type {
   RepoResponse,
   Runner,
 } from '@open-mercato/cezar-api-client'
-import { TwinkleBackdrop } from '@/components/centered-state'
+import { ShootingStar, TwinkleBackdrop } from '@/components/centered-state'
 import { Composer, type ComposerHandle } from '@/components/composer/composer'
 import { DispatchToggle } from '@/components/dispatch-toggle'
 import { GhostCodeBackdrop } from '@/components/ghost-code-backdrop'
@@ -602,6 +602,7 @@ export function NewTaskRoute() {
       className="relative isolate flex min-h-full flex-col items-center overflow-x-clip px-6 pt-[clamp(32px,7vh,84px)] pb-16 max-md:px-3.5 max-md:pt-7"
     >
       <TwinkleBackdrop />
+      <ShootingStar />
       <GhostCodeBackdrop />
 
       <div className="w-full max-w-[720px]">

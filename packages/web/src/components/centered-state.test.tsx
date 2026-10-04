@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { SearchXIcon } from 'lucide-react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { CenteredState, TwinkleBackdrop } from './centered-state'
+import { CenteredState, ShootingStar, TwinkleBackdrop } from './centered-state'
 
 // Explicit rather than relying on RTL's auto-cleanup, which only runs when vitest `globals` is on.
 afterEach(cleanup)
@@ -95,5 +95,18 @@ describe('TwinkleBackdrop', () => {
       expect(square.className).toContain('motion-safe:animate-pulse')
       expect(square.className).not.toMatch(/(?<!motion-safe:)animate-pulse/)
     }
+  })
+})
+
+describe('ShootingStar', () => {
+  it('is a hidden, pointer-transparent theme-token decoration on a 10-second cycle', () => {
+    const { container } = render(<ShootingStar />)
+    const star = container.querySelector('[data-slot="shooting-star"]')
+
+    expect(star?.getAttribute('aria-hidden')).toBe('true')
+    expect(star?.className).toContain('pointer-events-none')
+    expect(star?.className).toContain('-z-10')
+    expect(star?.className).toContain('shooting-star')
+    expect(star instanceof HTMLElement ? star.style.getPropertyValue('--cycle') : '').toBe('10s')
   })
 })
