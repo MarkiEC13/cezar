@@ -26,6 +26,8 @@ Ensure the first named attachment delivered to a live session is both advertised
 An attachment library directory may be read-only or otherwise inaccessible. Directory preparation and granting must remain best-effort, and ordinary run attachments must continue working from their per-run folder.
 
 ## Progress
+PR: #1257
+
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
@@ -38,3 +40,7 @@ An attachment library directory may be read-only or otherwise inaccessible. Dire
 
 - [x] 2.1 Run targeted attachment tests and prove the regression fails without the fix — 075cb38b
 - [x] 2.2 Run the configured validation gate, review the PR, and finalize the issue-specific PR — 6b338456; full clean suite green; independent review approved
+
+## Final verification
+
+Implementation source at `6b338456` was independently reviewed by dispatch task `9ac8a721`; final verdict approve, no findings. All configured validation commands passed with full-suite evidence on the PR. The completion update changes this plan only; source remains the reviewed version.
