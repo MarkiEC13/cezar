@@ -33,8 +33,8 @@ Risks: This is an isolated visual-only change, but CSS stacking and reduced-moti
 
 ### Phase 1: Decorative component
 
-- [ ] 1.1 Add a separately mounted, aria-hidden and pointer-transparent shooting-star sibling for the `/new` hero, with a theme-token trail and a `--cycle: 10s` style contract.
-- [ ] 1.2 Add CSS motion rules and keyframes that animate the streak only under `prefers-reduced-motion: no-preference`; keep the reduced-motion rendering static.
+- [x] 1.1 Add a separately mounted, aria-hidden and pointer-transparent shooting-star sibling for the `/new` hero, with a theme-token trail and a `--cycle: 10s` style contract. — 9c2c9165
+- [x] 1.2 Add CSS motion rules and keyframes that animate the streak only under `prefers-reduced-motion: no-preference`; keep the reduced-motion rendering static. — 9c2c9165
 
 ### Phase 2: Coverage and verification
 
