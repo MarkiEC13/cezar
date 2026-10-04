@@ -518,6 +518,39 @@
   }
 }
 
+/* ---------- shooting star (new-task hero) ----------
+ * One brief streak crosses the decorative upper field once per ten-second cycle. The base
+ * state is invisible, so reduced-motion users never see a moving or partially positioned
+ * element; animation is opt-in through the same media query as the ghost-code texture. */
+.shooting-star {
+  background: linear-gradient(90deg, transparent, var(--primary), var(--violet), transparent);
+  box-shadow: 0 0 10px var(--primary);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shooting-star {
+    animation: shooting-star var(--cycle) linear infinite;
+  }
+}
+@keyframes shooting-star {
+  0%,
+  7% {
+    opacity: 0;
+    transform: translateX(0) rotate(-28deg) scaleX(0.65);
+  }
+  10% {
+    opacity: 0.8;
+  }
+  15% {
+    opacity: 0;
+    transform: translateX(120vw) rotate(-28deg) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(120vw) rotate(-28deg) scaleX(1);
+  }
+}
+
 /* ---------- thread markdown (mockup `.msg-assist`) ----------
  * Chat-scale typography for assistant messages. Streamdown ships document-scale utility
  * classes on its elements (text-2xl headings, prose paddings); these rules are deliberately

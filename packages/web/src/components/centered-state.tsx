@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -144,5 +144,18 @@ export function TwinkleBackdrop({ className }: { className?: string }) {
         />
       ))}
     </div>
+  )
+}
+
+/** A single theme-token streak for the `/new` hero. It is separate from the twinkle squares
+ * so the shared empty-state backdrop keeps its existing texture and test contract. */
+export function ShootingStar() {
+  return (
+    <div
+      data-slot="shooting-star"
+      aria-hidden="true"
+      className="shooting-star pointer-events-none absolute left-[-10%] top-[24%] -z-10 h-px w-28"
+      style={{ '--cycle': '10s' } as CSSProperties}
+    />
   )
 }
