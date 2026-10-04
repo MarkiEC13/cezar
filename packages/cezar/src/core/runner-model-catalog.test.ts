@@ -91,7 +91,7 @@ describe('RunnerModelCatalog', () => {
       models: [],
       source: 'unavailable',
       stale: false,
-      reason: 'Pi model discovery is temporarily unavailable',
+      reason: 'pi model discovery is temporarily unavailable',
     });
   });
 
