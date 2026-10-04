@@ -406,6 +406,9 @@ interface ActiveRun {
   /** Registry snapshot used to expand `/skill` follow-ups before a backend can
    *  mistake them for its own slash commands (#676). */
   skills?: Skill[];
+  /** The attachment library actually granted to this session at spawn (#987). A library that
+   *  appears later must not be advertised to a session whose fixed grant was absent. */
+  grantedAttachmentLibrary?: string;
   /**
    * The dispatch prompt this session runs under (spec 2026-09-10-dispatch), resolved by
    * `prepareDispatchSession` — which BOTH construction sites call, because `ActiveRun` is built in
@@ -3237,8 +3240,8 @@ export class RunManager {
     const blocks = contentBlocksOf(content);
     const expanded = userAuthored ? expandRegistrySlashSkill(blocks, state.skills ?? []) : blocks;
     const deliverable = persisted.length
-      ? [...expanded, pastedAttachmentsNote(persisted, this.attachmentLibraryHint(persisted) ??
-          (imageLibraryWrites.length ? this.usableAttachmentLibrary() : undefined))]
+      ? [...expanded, pastedAttachmentsNote(persisted, this.attachmentLibraryHint(persisted, state.grantedAttachmentLibrary) ??
+          (imageLibraryWrites.length ? this.usableAttachmentLibrary(state.grantedAttachmentLibrary) : undefined))]
       : expanded;
     const delivered = state.session.sendMessage(deliverable);
     if (delivered) {
@@ -3862,6 +3865,7 @@ export class RunManager {
     const contextualOpeningPrompt = portableContext
       ? `${portableContext}\n\n---\n\n## New user instruction\n${openingPrompt}`
       : openingPrompt;
+    state.grantedAttachmentLibrary = this.prepareAttachmentLibrary();
     const session = runner.startSession(
       {
         // The Continue step is a fresh agent session on the same run — the
@@ -3875,7 +3879,7 @@ export class RunManager {
           generateFollowups ? HANDOFF_INSTRUCTIONS : HANDOFF_ONLY_INSTRUCTIONS,
         ),
         userPrompt: attachments.length
-          ? `${contextualOpeningPrompt}\n\n${pastedAttachmentsText(attachments, this.attachmentLibraryHint(attachments))}`
+          ? `${contextualOpeningPrompt}\n\n${pastedAttachmentsText(attachments, this.attachmentLibraryHint(attachments, state.grantedAttachmentLibrary))}`
           : contextualOpeningPrompt,
         ...(openingImages.length ? { images: openingImages } : {}),
         cwd: state.cwd,
@@ -3883,7 +3887,7 @@ export class RunManager {
         bashAllowlist: toolsStep?.bashAllowlist,
         additionalDirectories: agentDirectories(
           join(this.dataDir, 'runs'),
-          this.prepareAttachmentLibrary(),
+          state.grantedAttachmentLibrary,
           continueProfile.env,
         ),
         env: continueProfile.env,
@@ -4692,6 +4696,7 @@ export class RunManager {
     state.currentStepId = step.id;
     this.beginUsageInvocation(runId, state, step.id);
     if (state.cancelled) return 'cancelled';
+    state.grantedAttachmentLibrary = this.prepareAttachmentLibrary();
     try {
       session = runner.startSession(
         {
@@ -4715,9 +4720,9 @@ export class RunManager {
           allowedTools: step.allowedTools ?? DEFAULT_ALLOWED_TOOLS,
           bashAllowlist: step.bashAllowlist,
           // The handoff file lives outside the worktree — grant access.
-          additionalDirectories: agentDirectories(
-            join(this.dataDir, 'runs'),
-            this.prepareAttachmentLibrary(),
+        additionalDirectories: agentDirectories(
+          join(this.dataDir, 'runs'),
+          state.grantedAttachmentLibrary,
             stepProfile.env,
           ),
           env: stepProfile.env,
@@ -5183,28 +5188,27 @@ export class RunManager {
    * The name metadata is intentionally not serialized into PersistedAttachment. The
    * directory hint therefore depends on persisted attachments and library existence.
    */
-  private attachmentLibraryHint(attachments: PersistedAttachment[]): string | undefined {
+  private attachmentLibraryHint(
+    attachments: PersistedAttachment[],
+    grantedDir?: string,
+  ): string | undefined {
     if (!attachments.length) return undefined;
-    return this.usableAttachmentLibraryWithEntries();
-  }
-
-  /** A library path that can be inspected, for truthful prompt hints only. */
-  private usableAttachmentLibrary(): string | undefined {
-    const dir = this.grantableAttachmentLibrary();
+    const dir = this.usableAttachmentLibrary(grantedDir);
     if (!dir) return undefined;
     try {
-      readdirSync(dir);
-      return dir;
+      return readdirSync(dir).length ? dir : undefined;
     } catch {
       return undefined;
     }
   }
 
-  private usableAttachmentLibraryWithEntries(): string | undefined {
-    const dir = this.usableAttachmentLibrary();
+  /** A library path that can be inspected, for truthful prompt hints only. */
+  private usableAttachmentLibrary(grantedDir = this.grantableAttachmentLibrary()): string | undefined {
+    const dir = grantedDir;
     if (!dir) return undefined;
     try {
-      return readdirSync(dir).length ? dir : undefined;
+      readdirSync(dir);
+      return dir;
     } catch {
       return undefined;
     }

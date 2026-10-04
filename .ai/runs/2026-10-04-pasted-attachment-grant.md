@@ -18,8 +18,8 @@ Ensure the first named attachment delivered to a live session is both advertised
 
 ### Phase 2: Validate and review
 
-- [ ] 2.1 Run targeted attachment tests and prove the regression fails without the fix
-- [ ] 2.2 Run the configured validation gate, review the PR, and finalize the issue-specific PR
+- [x] 2.1 Run targeted attachment tests and prove the regression fails without the fix — 075cb38b
+- [ ] 2.2 Run the configured validation gate, review the PR, and finalize the issue-specific PR — targeted gate green; full `npm test` has unrelated failures; PR review remains
 
 ## Risks
 
@@ -36,5 +36,5 @@ An attachment library directory may be read-only or otherwise inaccessible. Dire
 
 ### Phase 2: Validate and review
 
-- [ ] 2.1 Run targeted attachment tests and prove the regression fails without the fix
-- [ ] 2.2 Run the configured validation gate, review the PR, and finalize the issue-specific PR
+- [x] 2.1 Run targeted attachment tests and prove the regression fails without the fix — 075cb38b
+- [ ] 2.2 Run the configured validation gate, review the PR, and finalize the issue-specific PR — targeted gate green; full `npm test` has unrelated failures; PR review remains
