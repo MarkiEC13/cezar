@@ -38,5 +38,5 @@ Risks: This is an isolated visual-only change, but CSS stacking and reduced-moti
 
 ### Phase 2: Coverage and verification
 
-- [ ] 2.1 Mount the effect only on the normal `/new` composer hero and add unit assertions for placement contract, accessibility, theme-token styling, and cadence.
+- [x] 2.1 Mount the effect only on the normal `/new` composer hero and add unit assertions for placement contract, accessibility, theme-token styling, and cadence. — fb2fed53
 - [ ] 2.2 Run the targeted web unit/design checks and the complete configured validation gate, then review the final diff for scope and accessibility regressions.
