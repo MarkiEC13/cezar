@@ -29,6 +29,8 @@ Risks: This is an isolated visual-only change, but CSS stacking and reduced-moti
 
 ## Progress
 
+PR: #1268
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Decorative component
