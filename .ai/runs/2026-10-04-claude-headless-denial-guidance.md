@@ -20,11 +20,11 @@ Make headless Claude tasks handle denied tools honestly and usefully when cezar 
 
 ### Phase 1: Runner guidance
 
-- [ ] 1.1 Add and test Claude-local denial guidance appended to caller system prompts.
+- [x] 1.1 Add and test Claude-local denial guidance appended to caller system prompts. — 88373959
 
 ### Phase 2: Documentation
 
-- [ ] 2.1 Correct approval-gate and headless workaround documentation.
+- [x] 2.1 Correct approval-gate and headless workaround documentation. — 88373959
 
 ### Phase 3: Validation and review
 
