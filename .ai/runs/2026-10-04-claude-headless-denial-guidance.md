@@ -35,17 +35,23 @@ Make headless Claude tasks handle denied tools honestly and usefully when cezar 
 The appended guidance is visible to Claude as system context and must not alter caller instructions or permissions. Tests must pin both empty and supplied caller prompts.
 
 ## Progress
+PR: #1256
+
 
 > Convention: `- [ ]` pending, `- [x]` done. Append — <commit sha> when a step lands. Do not rename step titles.
 
 ### Phase 1: Runner guidance
 
-- [ ] 1.1 Add and test Claude-local denial guidance appended to caller system prompts.
+- [x] 1.1 Add and test Claude-local denial guidance appended to caller system prompts. — 24920498; validation and independent review completed
 
 ### Phase 2: Documentation
 
-- [ ] 2.1 Correct approval-gate and headless workaround documentation.
+- [x] 2.1 Correct approval-gate and headless workaround documentation. — 24920498; validation and independent review completed
 
 ### Phase 3: Validation and review
 
-- [ ] 3.1 Run the configured validation gate, create and finalize the issue PR, and record evidence.
+- [x] 3.1 Run the configured validation gate, create and finalize the issue PR, and record evidence. — 24920498; validation and independent review completed
+
+## Final verification
+
+Implementation source at `24920498` was independently reviewed by dispatch task `9ac8a721`; final verdict approve, no findings. All configured validation commands passed with full-suite evidence on the PR. The completion update changes this plan only; source remains the reviewed version.
