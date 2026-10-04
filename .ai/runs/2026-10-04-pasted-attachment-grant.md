@@ -13,8 +13,8 @@ Ensure the first named attachment delivered to a live session is both advertised
 
 ### Phase 1: Reproduce and fix the grant invariant
 
-- [ ] 1.1 Add a regression covering the first named live follow-up's advertised library and fixed `--add-dir` grant
-- [ ] 1.2 Prepare the library directory at both initial and continuation session construction sites; keep hints best-effort
+- [x] 1.1 Add a regression covering the first named live follow-up's advertised library and fixed `--add-dir` grant — dad8f65a
+- [x] 1.2 Prepare the library directory at both initial and continuation session construction sites; keep hints best-effort — dad8f65a
 
 ### Phase 2: Validate and review
 
@@ -31,8 +31,8 @@ An attachment library directory may be read-only or otherwise inaccessible. Dire
 
 ### Phase 1: Reproduce and fix the grant invariant
 
-- [ ] 1.1 Add a regression covering the first named live follow-up's advertised library and fixed `--add-dir` grant
-- [ ] 1.2 Prepare the library directory at both initial and continuation session construction sites; keep hints best-effort
+- [x] 1.1 Add a regression covering the first named live follow-up's advertised library and fixed `--add-dir` grant — dad8f65a
+- [x] 1.2 Prepare the library directory at both initial and continuation session construction sites; keep hints best-effort — dad8f65a
 
 ### Phase 2: Validate and review
 
