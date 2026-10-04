@@ -926,6 +926,54 @@ describe('pasted screenshots materialize to disk and reach the agent as file pat
     rmSync(liveRepoRoot, { recursive: true, force: true });
   }, 30_000);
 
+  it('does not advertise a library that appeared after the live session failed to grant it', async () => {
+    writeFileSync(stdinFile, '', 'utf8');
+    writeFileSync(argsFile, '', 'utf8');
+    const liveRepoRoot = mkdtempSync(join(tmpdir(), 'cez-late-library-repo-'));
+    await run('git', ['init', '-q', '-b', 'main'], { cwd: liveRepoRoot });
+    writeFileSync(join(liveRepoRoot, 'a.txt'), 'one\n');
+    await run('git', ['add', '-A'], { cwd: liveRepoRoot });
+    await run('git', [...GIT_ID, 'commit', '-q', '-m', 'base'], { cwd: liveRepoRoot });
+    const liveDataDir = join(liveRepoRoot, '.ai/cezar');
+    mkdirSync(liveDataDir, { recursive: true });
+    writeFileSync(join(liveDataDir, 'config.json'), JSON.stringify({ maxParallel: 1 }));
+    const blockedLibrary = attachmentLibraryDir(liveDataDir);
+    writeFileSync(blockedLibrary, 'mkdir is intentionally blocked');
+    const liveStore = RunStore.open(liveDataDir);
+    const liveManager = new RunManager(liveStore, liveRepoRoot);
+    const waitForLiveStatus = async (runId: string, statuses: string[]): Promise<string> => {
+      const deadline = Date.now() + 20_000;
+      for (;;) {
+        const status = liveStore.getRun(runId)?.status;
+        if (status && statuses.includes(status)) return status;
+        if (Date.now() > deadline) throw new Error(`run did not reach ${statuses.join('/')} in time (was ${status})`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    };
+    const workflow: WorkflowDef = {
+      name: 'late-library-test',
+      source: 'built-in',
+      steps: [{ id: 'work', prompt: '{{task}}' }],
+    };
+    const record = liveManager.startRun(workflow, { task: 'chat with me' });
+    await waitForLiveStatus(record.id, ['waiting']);
+
+    rmSync(blockedLibrary, { force: true });
+    mkdirSync(blockedLibrary, { recursive: true });
+    const image = toPastedContent({ mediaType: 'image/png', data: TINY_PNG_B64, name: 'late.png' });
+    expect(liveManager.sendMessage(record.id, [{ type: 'text', text: 'late attachment' }, image])).toBe(true);
+    await waitForLiveStatus(record.id, ['waiting']);
+
+    const followUp = readStdinLines().find((line) => line.userText.includes('late attachment'));
+    expect(followUp?.userText).toContain('also saved on disk at:');
+    expect(followUp?.userText).not.toContain(`kept under their original names in ${blockedLibrary}`);
+    expect(existsSync(join(blockedLibrary, 'late.png'))).toBe(true);
+
+    liveManager.finish(record.id);
+    liveStore.flush();
+    rmSync(liveRepoRoot, { recursive: true, force: true });
+  }, 30_000);
+
   /** Continue takes a prompt of its own, and the composer that writes it is a full composer —
    *  so a screenshot pasted into a CLOSED run's composer has to travel the same road as one
    *  pasted mid-session: onto disk, into the thread's bubble, and into the reopened session's

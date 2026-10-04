@@ -4406,8 +4406,9 @@ export class RunManager {
     // at all. Deliberately NOT nested in the branch above: gating the paths on an image block
     // existing is what would leave an agent holding a task about a `.pdf` it was never told the
     // location of.
+    state.grantedAttachmentLibrary = this.prepareAttachmentLibrary();
     if (attachments.length) {
-      userPrompt += `\n\n${pastedAttachmentsText(attachments, this.attachmentLibraryHint(attachments))}`;
+      userPrompt += `\n\n${pastedAttachmentsText(attachments, this.attachmentLibraryHint(attachments, state.grantedAttachmentLibrary))}`;
     }
 
     const sessionId = randomUUID();
@@ -4696,7 +4697,6 @@ export class RunManager {
     state.currentStepId = step.id;
     this.beginUsageInvocation(runId, state, step.id);
     if (state.cancelled) return 'cancelled';
-    state.grantedAttachmentLibrary = this.prepareAttachmentLibrary();
     try {
       session = runner.startSession(
         {
@@ -4720,9 +4720,9 @@ export class RunManager {
           allowedTools: step.allowedTools ?? DEFAULT_ALLOWED_TOOLS,
           bashAllowlist: step.bashAllowlist,
           // The handoff file lives outside the worktree — grant access.
-        additionalDirectories: agentDirectories(
-          join(this.dataDir, 'runs'),
-          state.grantedAttachmentLibrary,
+          additionalDirectories: agentDirectories(
+            join(this.dataDir, 'runs'),
+            state.grantedAttachmentLibrary,
             stepProfile.env,
           ),
           env: stepProfile.env,
@@ -5203,7 +5203,7 @@ export class RunManager {
   }
 
   /** A library path that can be inspected, for truthful prompt hints only. */
-  private usableAttachmentLibrary(grantedDir = this.grantableAttachmentLibrary()): string | undefined {
+  private usableAttachmentLibrary(grantedDir: string | undefined): string | undefined {
     const dir = grantedDir;
     if (!dir) return undefined;
     try {
