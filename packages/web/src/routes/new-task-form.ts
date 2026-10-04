@@ -67,12 +67,12 @@ export interface ModelPreset {
 /**
  * Static model presets per runner. `id: ''` is always "auto" — no model flag, the runner decides.
  *
- * For a runner that discovers (`MODEL_DISCOVERY_RUNNERS` — claude, codex, opencode, cursor, pi) this list is
+ * For a runner that discovers (`MODEL_DISCOVERY_RUNNERS` — claude, codex, opencode, cursor, pi, junie) this list is
  * only the FALLBACK, used when the host catalog has nothing to offer; a live catalog replaces it.
  * Nothing dated may be listed for those — pinned ids (`claude-opus-4-8`, `gpt-5.1-codex`) are
  * exactly the drift discovery exists to end (#794 for OpenCode, #784 for Claude). Claude
  * therefore keeps only its tier aliases, which stay true across every rollout because the CLI
- * resolves them itself; Codex, OpenCode, Cursor and Pi list `auto` alone as their fallback.
+ * resolves them itself; Codex, OpenCode, Cursor, pi and Junie list `auto` alone as their fallback.
  */
 export const MODELS_BY_RUNNER: Record<Runner, readonly ModelPreset[]> = {
   claude: [

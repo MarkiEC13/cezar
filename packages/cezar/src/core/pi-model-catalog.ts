@@ -20,7 +20,13 @@ const HEADER = /^provider\s+model\s+context\s+max-out\s+thinking\s+images$/i;
 const ROW = /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(yes|no)\s+(yes|no)$/i;
 const ANSI_RE = /\u001B\[[0-9;]*[A-Za-z]/g;
 
-/** Resolve Pi exactly like the runner, including its test/dry-run override. */
+/**
+ * Resolve the pi binary the way the runner does for a real session (`CEZ_PI_BIN`, else `pi` on
+ * PATH). Deliberately NOT the runner's `CEZ_DRY_RUN=1` branch: that points at `mock-pi-rpc.mjs`,
+ * an RPC stdin loop with no `--list-models`, so probing it would stall until the timeout. Under
+ * dry run discovery therefore degrades to the shared unavailable fallback, like every other
+ * runner's catalog.
+ */
 export function resolvePiExecutable(bin?: string): string {
   return bin ?? process.env.CEZ_PI_BIN ?? 'pi';
 }
