@@ -6,12 +6,12 @@ import type { AgentBackend, AgentRunSpec, AgentSession, AgentEvent } from '../co
 import { RunStore } from '../runs/store.ts';
 import { RunManager } from './run.ts';
 
-const runnerState = vi.hoisted(() => ({ calls: [] as AgentRunSpec[], backend: '' as string }));
+const runnerState = vi.hoisted(() => ({ calls: [] as AgentRunSpec[], backend: '' as string, failure: 'missing' as 'missing' | 'auth' }));
 vi.mock('../core/runner-factory.ts', () => ({
   createRunner: () => ({
     startSession(spec: AgentRunSpec, _onEvent?: (event: AgentEvent) => void): AgentSession {
       runnerState.calls.push(spec);
-      const missing = spec.resume === true;
+      const missing = spec.resume === true && runnerState.failure === 'missing';
       return {
         result: missing
           ? Promise.reject(new Error(
@@ -21,7 +21,9 @@ vi.mock('../core/runner-factory.ts', () => ({
                   ? 'no rollout found for thread old-session'
                   : 'No conversation found with session ID old-session',
             ))
-          : Promise.resolve({ text: 'fresh session completed', sessionId: 'fresh-session' }),
+          : spec.resume === true
+            ? Promise.reject(new Error('authentication failed: session token missing from configuration'))
+            : Promise.resolve({ text: 'fresh session completed', sessionId: 'fresh-session' }),
         open: true,
         sendMessage: () => false,
         end: () => undefined,
@@ -46,6 +48,7 @@ describe('missing-session Continue fallback lifecycle', () => {
     process.env.CEZ_DRY_RUN = '1';
     process.env.CEZ_DISABLE_REPO_LOCK = '1';
     runnerState.backend = backend;
+    runnerState.failure = 'missing';
     runnerState.calls = [];
     const repoRoot = mkdtempSync(join(tmpdir(), `cez-missing-${backend}-`));
     const store = RunStore.open(join(repoRoot, '.ai/cezar'));
@@ -83,6 +86,36 @@ describe('missing-session Continue fallback lifecycle', () => {
       expect(runnerState.calls[1]?.userPrompt).toContain(attachmentPath);
       expect(store.getRun(record.id)?.status).toBe('done');
       expect(store.getRun(record.id)?.steps.find((step) => step.id === 'continue-1')?.status).toBe('done');
+      expect(manager.isActive(record.id)).toBe(false);
+    } finally {
+      manager.dispose();
+      store.flush();
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('does not retry a nonmissing authentication failure', async () => {
+    process.env.CEZ_DRY_RUN = '1';
+    process.env.CEZ_DISABLE_REPO_LOCK = '1';
+    runnerState.backend = 'claude';
+    runnerState.failure = 'auth';
+    runnerState.calls = [];
+    const repoRoot = mkdtempSync(join(tmpdir(), 'cez-auth-failure-'));
+    const store = RunStore.open(join(repoRoot, '.ai/cezar'));
+    const manager = new RunManager(store, repoRoot);
+    try {
+      const record = store.createRun({
+        title: 'auth failure', workflow: 'quick-task', task: 'auth failure', runner: 'claude',
+        steps: [{ id: 'task', name: 'Task', kind: 'agent', backend: 'claude' }],
+      });
+      store.updateRun(record.id, { status: 'done', finishedAt: new Date().toISOString() });
+      store.updateStep(record.id, 'task', { status: 'done', sessionId: 'old-session', backend: 'claude' });
+      store.addStep(record.id, { id: 'continue-1', name: 'Continue', kind: 'agent' });
+      const internals = manager as unknown as { runContinuation: (...args: unknown[]) => Promise<void> };
+      await internals.runContinuation(record.id, 'continue-1', 'old-session', 'claude', 'try auth');
+      expect(runnerState.calls).toHaveLength(1);
+      expect(store.getRun(record.id)?.status).toBe('failed');
+      expect(manager.isActive(record.id)).toBe(false);
     } finally {
       manager.dispose();
       store.flush();
