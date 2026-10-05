@@ -29,11 +29,11 @@ consistent limit across the API and cockpit.
 - [ ] 2.1 Run targeted tests, the full validation gate, and review the final diff.
 
 Verification note: targeted server/browser tests pass (60 tests) and the Prompt templates settings
-suite passes (16 tests). The configured gate was attempted in order: `npm run typecheck` and
-`npm run build` fail on unrelated stale contract/generated-artifact exports, `npm test` has
-unrelated worktree/dashboard/automation failures, `npm run test:unit` passes (36 tests), and
-`npm run test:package` lacks generated build artifacts. GitHub forbids approving this PR from its
-own author account, so an independent review is still required before this PR can be marked ready.
+suite passes (16 tests). With this worktree's dependencies installed, `npm run typecheck` and
+`npm run build` pass; `npm run test:unit` passes (36 tests). The local full Vitest run reproduces
+unrelated environment-sensitive failures and was stopped after evidence collection; GitHub CI
+passed the complete Unit/build/E2E/package gate, CodeQL, npm snapshot, and CLA checks. An
+independent review is still required before this PR can be marked ready.
 
 ## Risks
 
@@ -42,13 +42,15 @@ increases the maximum preference payload but remains capped and affects no exist
 
 ## Progress
 
+PR: #1273
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Trace and define the bound
 
-- [ ] 1.1 Align the contract, server validator, and browser normalization/editor at 20,000 characters.
-- [ ] 1.2 Add server and browser regression tests for accepted long input and oversized rejection.
+- [x] 1.1 Align the contract, server validator, and browser normalization/editor at 20,000 characters. — 1b89e450
+- [x] 1.2 Add server and browser regression tests for accepted long input and oversized rejection. — 1b89e450
 
 ### Phase 2: Verify and publish
 
-- [ ] 2.1 Run targeted tests, the full validation gate, and review the final diff.
+- [x] 2.1 Run targeted tests, the full validation gate, and review the final diff. — 8e808b39

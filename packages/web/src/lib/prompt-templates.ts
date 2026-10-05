@@ -10,7 +10,7 @@
  * (`.passthrough()` schema, the #408 `skillUsage` pattern) — so "no key at all" and "the built-ins,
  * saved verbatim" are indistinguishable in effect but the former costs nothing to ship.
  */
-import { DISPATCH_MAX_IN_FLIGHT } from '@open-mercato/cezar-api-client'
+import { DISPATCH_MAX_IN_FLIGHT, PROMPT_TEMPLATE_TEXT_MAX } from '@open-mercato/cezar-api-client'
 
 export interface PromptTemplate {
   id: string
@@ -26,8 +26,7 @@ export interface PromptTemplate {
 }
 
 const LABEL_MAX = 80
-/** Keep reusable templates bounded at the contract's documented 20,000-character limit (#908). */
-export const PROMPT_TEMPLATE_TEXT_LIMIT = 20_000
+export const PROMPT_TEMPLATE_TEXT_LIMIT = PROMPT_TEMPLATE_TEXT_MAX
 const LIST_MAX = 50
 /** Matches the server's `ref` bound for a skill name (`uiStateSchema.lastTask.ref`). */
 const SKILL_NAME_MAX = 200

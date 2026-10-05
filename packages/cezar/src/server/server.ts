@@ -41,11 +41,8 @@ import { streamSSE } from 'hono/streaming';
 import { jsonZodValidator, paramZodValidator, queryZodValidator } from './validators.ts';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
-// Keep this runtime-local: source tests may resolve the workspace contract package's previous
-// dist, while published builds inline the contract. The contract exports the same documented
-// bound for consumers and type-level parity.
-const PROMPT_TEMPLATE_TEXT_MAX = 20_000;
 import {
+  PROMPT_TEMPLATE_TEXT_MAX,
   setWorkspaceUiStateInputSchema,
   type GroupResponse,
   type GroupVariant,
