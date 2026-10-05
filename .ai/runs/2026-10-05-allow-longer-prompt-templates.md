@@ -33,7 +33,10 @@ suite passes (16 tests). With this worktree's dependencies installed, `npm run t
 `npm run build` pass; `npm run test:unit` passes (36 tests). The local full Vitest run reproduces
 unrelated environment-sensitive failures and was stopped after evidence collection; GitHub CI
 passed the complete Unit/build/E2E/package gate, CodeQL, npm snapshot, and CLA checks. An
-independent review is still required before this PR can be marked ready.
+independent review is still required before this PR can be marked ready. Browser QA was not
+exercised: the configured agent-browser Chrome could not launch because `libnspr4.so` is missing,
+and passwordless sudo is unavailable to install system dependencies. The `needs-qa` label is
+intentionally preserved.
 
 ## Risks
 
