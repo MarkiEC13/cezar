@@ -26,7 +26,7 @@ consistent limit across the API and cockpit.
 
 ### Phase 2: Verify and publish
 
-- [ ] 2.1 Run targeted tests, the full validation gate, and review the final diff.
+- [x] 2.1 Run targeted tests, the full validation gate, and review the final diff. — 9412669f
 
 Verification note: targeted server/browser tests pass (60 tests) and the Prompt templates settings
 suite passes (16 tests). With this worktree's dependencies installed, `npm run typecheck` and
@@ -56,4 +56,6 @@ PR: #1273
 
 ### Phase 2: Verify and publish
 
-- [x] 2.1 Run targeted tests, the full validation gate, and review the final diff. — 8e808b39
+- [x] 2.1 Run targeted tests, the full validation gate, and review the final diff. — 9412669f
+
+Status: complete for code review at exact head `9412669f`; isolated dependency install plus contract build yielded 60/60 targeted tests and remote CI/CodeQL/package checks pass. Browser QA remains required and blocked by the documented `libnspr4.so`/sudo limitation.
