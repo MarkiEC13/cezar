@@ -51,7 +51,7 @@ import {
   getSkills,
   getSkillsWhenReady,
   getTodos,
-  getTrackerAssociation, getTrackerConnection,
+  getTrackerAssociation, getTrackerConnection, getCheckEnvNames,
   getTrackerCandidates,
   getTrackerItem,
   getTrackerItems,
@@ -139,6 +139,10 @@ import { subscribeTopic } from './ws'
  * ever reach A's data. Call sites are unchanged — they keep writing `queryKeys.runs.list()`.
  */
 export const queryKeys = {
+  checkEnv: {
+    allFor: (projectId: string) => ['check-env', projectId] as const,
+    names: () => ['check-env', queryScope()] as const,
+  },
   tracker: {
     allFor: (projectId: string) => ['tracker', projectId] as const,
     all: () => ['tracker', queryScope()] as const,
@@ -256,6 +260,10 @@ export const queryKeys = {
 }
 
 export const TRACKER_STALE_TIME = 60_000
+
+export function useCheckEnvNames() {
+  return useQuery({ queryKey: queryKeys.checkEnv.names(), queryFn: ({ signal }) => getCheckEnvNames({ signal }) })
+}
 
 export function useTrackerConnection() {
   return useQuery({ queryKey: queryKeys.tracker.connection(), queryFn: ({ signal }) => getTrackerConnection({ signal }) })
