@@ -3946,7 +3946,10 @@ export class RunManager {
           prompt,
           images,
           persistedImages,
-          persistedAttachments,
+          // The first attempt already persisted these attachments before the missing-session
+          // error. Suppress only the duplicate user-message event on the fallback; retain the
+          // saved metadata so file paths and the attachment-library hint reach the fresh session.
+          [...persistedAttachments, ...freshAttachments],
           effectiveOwnerToken,
           resumeContext,
           treeBlocks,
