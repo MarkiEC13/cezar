@@ -102,6 +102,8 @@ import { reviewGateEnabled } from '../runs/review-gate.ts';
 import { resolveProfileEnvForRoot } from '../workspace/agent-profiles.ts';
 import { DEFAULT_AGENT_ACCOUNT_ID } from '../workspace/agent-accounts.ts';
 import { WorkspaceSemaphore, type AccountHolds } from '../workspace/semaphore.ts';
+import { CheckEnv } from '../workspace/check-env.ts';
+import { MIN_SECRET_LEN } from '../core/secret-redaction.ts';
 import { UiEventSink } from '../runs/ui-event-sink.ts';
 import type { UiEvent } from '../core/ui-events.ts';
 import {
@@ -1037,6 +1039,9 @@ export class RunManager {
   private readonly projectId: string | undefined;
 
   /** See the constructor option of the same name. */
+  private readonly checkEnv: CheckEnv;
+
+  /** See the constructor option of the same name. */
   private readonly resolveTrackerEnv: ((root: string, expected: TrackerAssociation | undefined) => Promise<Record<string, string>>) | undefined;
 
   constructor(
@@ -1051,11 +1056,14 @@ export class RunManager {
        * reach an agent. Secrets are registered with RunStore before any output arrives.
        */
       resolveTrackerEnv?: (root: string, expected: TrackerAssociation | undefined) => Promise<Record<string, string>>;
+      /** The project's check credentials store (spec 2026-10-06-agentic-e2e-checks). */
+      checkEnv?: CheckEnv;
     } = {},
   ) {
     this.dataDir = join(repoRoot, '.ai/cezar');
     this.projectId = options.projectId;
     this.resolveTrackerEnv = options.resolveTrackerEnv;
+    this.checkEnv = options.checkEnv ?? new CheckEnv();
     this.semaphore = options.semaphore ?? new WorkspaceSemaphore();
     this.offSemaphore = this.semaphore.register({
       busySlots: () => this.busySlots(),
@@ -4282,7 +4290,7 @@ export class RunManager {
         continue;
       }
 
-      const { ok, output, exitCode } = await this.runCheckStep(state, step, emit);
+      const { ok, output, exitCode } = await this.runCheckStep(runId, state, step, emit);
       if (state.cancelled) break;
       if (ok) {
         this.finishStep(runId, step.id, 'done', undefined, emit);
@@ -4308,7 +4316,10 @@ export class RunManager {
       const used = retriesUsed.get(step.id) ?? 0;
       if (step.onFail && used < step.onFail.max) {
         retriesUsed.set(step.id, used + 1);
-        checkFailure = output;
+        // The output goes into the next agent prompt — to the agent's model provider — so it is
+        // scrubbed like an event is: host secrets, this run's registered secrets (check
+        // credentials included) and token patterns. Strictly narrowing, for every workflow.
+        checkFailure = this.store.redactRunText(runId, output);
         this.finishStep(runId, step.id, 'failed', 'check failed — looping back', emit);
         const retryIdx = workflow.steps.findIndex((s) => s.id === step.onFail?.retry);
         emit({
@@ -5624,16 +5635,36 @@ export class RunManager {
     }
   }
 
-  private runCheckStep(
+  /**
+   * The environment a check step runs with: the server's own, plus the project's check
+   * credentials (spec 2026-10-06-agentic-e2e-checks). Read fresh for every check execution, so
+   * an edit applies to the next check, never one mid-command. The values are registered as run
+   * secrets BEFORE the spawn, so the first byte of output is already scrubbed; values shorter
+   * than the host-secret floor are not, or a flag like `=1` would redact every `1` in the log.
+   */
+  private async checkStepEnv(runId: string): Promise<NodeJS.ProcessEnv> {
+    const checkEnv = this.projectId ? await this.checkEnv.values(this.projectId, this.repoRoot) : {};
+    this.store.registerRunSecrets(
+      runId,
+      Object.values(checkEnv).filter((value) => value.length >= MIN_SECRET_LEN),
+    );
+    return { ...process.env, ...checkEnv };
+  }
+
+  private async runCheckStep(
+    runId: string,
     state: ActiveRun,
     step: WorkflowStepDef,
     emit: (event: { type: string; stepId?: string; [k: string]: unknown }) => void,
   ): Promise<{ ok: boolean; output: string; exitCode: number }> {
     const command = step.command as string;
     emit({ type: 'note', stepId: step.id, message: `$ ${command}` });
+    const env = await this.checkStepEnv(runId);
+    // A cancel that landed during the read had no child to interrupt; do not spawn one now.
+    if (state.cancelled) return { ok: false, output: 'cancelled', exitCode: -1 };
     return new Promise((resolve) => {
       // Check steps run in the same cwd as the agent steps — the worktree.
-      const child = spawn('bash', ['-lc', command], { cwd: state.cwd, env: process.env });
+      const child = spawn('bash', ['-lc', command], { cwd: state.cwd, env });
       state.interrupt = () => child.kill('SIGTERM');
 
       let output = '';

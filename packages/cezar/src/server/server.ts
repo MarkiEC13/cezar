@@ -2,7 +2,9 @@ import {
   trackerWatchInputSchema, trackerWatchParamsSchema, trackerWatchQuerySchema,
   trackerCandidatesQuerySchema, trackerListQuerySchema, trackerSearchQuerySchema, trackerItemQuerySchema, trackerReadScope,
   trackerCredentialsSchema, trackerItemParamsSchema, trackerAssociationInputSchema, type TrackerChangedEvent,
+  checkEnvParamsSchema, checkEnvValueInputSchema, type CheckEnvNames,
 } from '@open-mercato/cezar-contract';
+import { CheckEnv, CheckEnvError } from '../workspace/check-env.ts';
 import { createTrackerService } from './tracker/index.ts';
 import { TrackerWatches } from './tracker/watch.ts';
 import { readTrackerAssociation, writeTrackerAssociation, clearTrackerAssociation } from '../tracker-association.ts';
@@ -5555,6 +5557,49 @@ export function createApp(deps: ServerDeps) {
     };
     workspaceEvents.emit('tracker-changed', payload);
   };
+  // ---- chained family: project check credentials ---------------------------
+  // Spec 2026-10-06-agentic-e2e-checks Phase 1. Write-only values for CHECK steps: GET answers
+  // names and never a value, masked or not. The write gate is the one `/tracker/connection`
+  // has — the global request-origin guard (#426), no per-route capability — and the file is
+  // keyed by the same project id the run manager reads with, so the reserved boot alias of an
+  // unregistered boot project is refused rather than written somewhere nothing reads.
+  const checkEnvStore = new CheckEnv();
+  const unregisteredCheckEnv = { error: 'this project is not registered; check credentials need a project id' };
+  const checkEnvRoutes = new Hono<ProjectApiEnv>()
+    .get('/check-env', async (c) => {
+      const project = c.get('project');
+      const body: CheckEnvNames = { names: await checkEnvStore.names(project.id, project.root) };
+      return c.json(body, 200);
+    })
+    .put(
+      '/check-env/:name',
+      paramZodValidator(checkEnvParamsSchema),
+      jsonZodValidator(checkEnvValueInputSchema),
+      async (c) => {
+        const project = c.get('project');
+        if (project.id === 'default') return c.json(unregisteredCheckEnv, 409);
+        try {
+          await checkEnvStore.set(project.id, project.root, c.req.valid('param').name, c.req.valid('json').value);
+        } catch (error) {
+          if (error instanceof CheckEnvError) return c.json({ error: error.message }, 400);
+          return c.json({ error: 'Could not save the check credential. Check local storage permissions.' }, 409);
+        }
+        return c.body(null, 204);
+      },
+    )
+    .delete('/check-env/:name', paramZodValidator(checkEnvParamsSchema), async (c) => {
+      const project = c.get('project');
+      if (project.id === 'default') return c.json(unregisteredCheckEnv, 409);
+      let removed: boolean;
+      try {
+        removed = await checkEnvStore.unset(project.id, project.root, c.req.valid('param').name);
+      } catch {
+        return c.json({ error: 'Could not remove the check credential. Check local storage permissions.' }, 409);
+      }
+      if (!removed) return c.json({ error: 'no check credential with that name' }, 404);
+      return c.body(null, 204);
+    });
+
   const trackerRoutes = new Hono<ProjectApiEnv>()
     .get('/tracker/automation-options', queryZodValidator(trackerAutomationOptionsQuerySchema), async c => {
       const project = c.get('project');
@@ -6226,6 +6271,7 @@ export function createApp(deps: ServerDeps) {
     .route('/', sseRoutes)
     .route('/', githubRoutes)
     .route('/', trackerRoutes)
+    .route('/', checkEnvRoutes)
     .route('/', repoRoutes)
     .route('/', configRoutes)
     .route('/', agentConfigRoutes);
