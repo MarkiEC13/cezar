@@ -3,6 +3,8 @@ import { TrackerAgentBindingError } from '../server/tracker/agent-credentials.ts
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
+import { assertCezarHomeWriteIsSandboxed, cezarHomeDir } from '../paths.ts';
 import { basename, dirname, join } from 'node:path';
 import {
   parseAskMarker,
@@ -5642,13 +5644,49 @@ export class RunManager {
    * secrets BEFORE the spawn, so the first byte of output is already scrubbed; values shorter
    * than the host-secret floor are not, or a flag like `=1` would redact every `1` in the log.
    */
-  private async checkStepEnv(runId: string): Promise<NodeJS.ProcessEnv> {
+  private async checkStepEnv(runId: string, state: ActiveRun, stepId: string): Promise<NodeJS.ProcessEnv> {
     const checkEnv = this.projectId ? await this.checkEnv.values(this.projectId, this.repoRoot) : {};
     this.store.registerRunSecrets(
       runId,
       Object.values(checkEnv).filter((value) => value.length >= MIN_SECRET_LEN),
     );
-    return { ...process.env, ...checkEnv };
+    // The run context wins last (Phase 2). Its names are first removed from what the server
+    // inherited — a cezar started inside another cezar task carries that task's `CEZ_*` — so a
+    // variable this run does not set is absent, never a stale value from somewhere else.
+    const base: NodeJS.ProcessEnv = { ...process.env };
+    for (const name of CHECK_CONTEXT_VARS) delete base[name];
+    return { ...base, ...checkEnv, ...(await this.checkContextEnv(runId, state, stepId)) };
+  }
+
+  /**
+   * What a check step knows about the run it verifies (spec 2026-10-06-agentic-e2e-checks
+   * Phase 2). Cezar-set outputs, not knobs: every value is a string, and a value this run does
+   * not have is omitted rather than set empty, so `[ -n "$CEZ_GITHUB_NUMBER" ]` means what it
+   * says. `CEZ_SHARED_CACHE_DIR` is one directory per project, shared by its tasks, so a
+   * replay cache recorded in one worktree is warm in the next.
+   */
+  private async checkContextEnv(runId: string, state: ActiveRun, stepId: string): Promise<Record<string, string>> {
+    const run = this.store.getRun(runId);
+    const context: Record<string, string> = {
+      CEZ_RUN_ID: runId,
+      CEZ_WORKTREE: state.cwd,
+      CEZ_STEP_ID: stepId,
+      CEZ_ATTEMPT: String(run?.steps.find((step) => step.id === stepId)?.iterations ?? 1),
+    };
+    if (this.projectId) {
+      context.CEZ_PROJECT_ID = this.projectId;
+      const cache = await sharedCheckCacheDir(this.projectId);
+      if (cache) context.CEZ_SHARED_CACHE_DIR = cache;
+    }
+    if (run?.branch) context.CEZ_BRANCH = run.branch;
+    if (run?.baseBranch) context.CEZ_BASE = run.baseBranch;
+    const github = run?.automation ? parseGithubItemUrl(run.automation.githubUrl) : undefined;
+    if (github && run?.automation) {
+      context.CEZ_GITHUB_REPO = github.repo;
+      context.CEZ_GITHUB_NUMBER = String(github.number);
+      context.CEZ_GITHUB_EVENT = run.automation.event;
+    }
+    return context;
   }
 
   private async runCheckStep(
@@ -5659,7 +5697,7 @@ export class RunManager {
   ): Promise<{ ok: boolean; output: string; exitCode: number }> {
     const command = step.command as string;
     emit({ type: 'note', stepId: step.id, message: `$ ${command}` });
-    const env = await this.checkStepEnv(runId);
+    const env = await this.checkStepEnv(runId, state, step.id);
     // A cancel that landed during the read had no child to interrupt; do not spawn one now.
     if (state.cancelled) return { ok: false, output: 'cancelled', exitCode: -1 };
     return new Promise((resolve) => {
@@ -5709,6 +5747,50 @@ export class RunManager {
     });
     emit({ type: 'step-end', stepId, status, ...(error ? { error } : {}) });
     appendHandoffHeartbeat(this.dataDir, runId, `step "${stepId}" complete — status=${status}`);
+  }
+}
+
+/**
+ * Every variable a check step's run context may set (spec 2026-10-06-agentic-e2e-checks
+ * Phase 2) — also the list stripped from the inherited env, so an unset one is truly absent.
+ * Documented in `docs/reference.md` and `.env.example`; keep the three in step.
+ */
+export const CHECK_CONTEXT_VARS = [
+  'CEZ_RUN_ID',
+  'CEZ_PROJECT_ID',
+  'CEZ_WORKTREE',
+  'CEZ_BRANCH',
+  'CEZ_BASE',
+  'CEZ_STEP_ID',
+  'CEZ_ATTEMPT',
+  'CEZ_SHARED_CACHE_DIR',
+  'CEZ_GITHUB_REPO',
+  'CEZ_GITHUB_NUMBER',
+  'CEZ_GITHUB_EVENT',
+  'CEZ_PR_HEAD_SHA',
+  'CEZ_PR_HEAD_REF',
+  'CEZ_PR_BASE_REF',
+] as const;
+
+/** `https://github.com/<owner>/<repo>/(pull|issues)/<n>` → its repo and number. */
+export function parseGithubItemUrl(url: string): { repo: string; number: number } | undefined {
+  const match = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/(?:pull|issues)\/([1-9][0-9]*)(?:[/?#].*)?$/.exec(url);
+  return match ? { repo: match[1]!, number: Number(match[2]) } : undefined;
+}
+
+/**
+ * `~/.cezar/cache/<projectId>`, created `0700` on first use — the shared replay cache of a
+ * project's check steps. `undefined` when the home cannot hold it: the check then runs with a
+ * cold cache, exactly as before this variable existed.
+ */
+async function sharedCheckCacheDir(projectId: string): Promise<string | undefined> {
+  const dir = join(cezarHomeDir(), 'cache', projectId);
+  try {
+    assertCezarHomeWriteIsSandboxed(dir);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    return dir;
+  } catch {
+    return undefined;
   }
 }
 

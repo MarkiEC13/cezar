@@ -249,6 +249,27 @@ for follow-ups.
   half the cores, and a read-write replay cache — a verified `agent.act`
   recorded on one attempt replays without a model call on the next. Set `CI=1`
   in the command to get the stricter CI defaults instead.
+- **The replay cache can be shared across tasks.** Every task starts in a
+  fresh worktree, and `.e2e/cache/` is gitignored, so by default each task
+  re-records every `agent.act`. cezar hands each check `CEZ_SHARED_CACHE_DIR`
+  (`~/.cezar/cache/<project>`, one per project) — point the cache there:
+
+  ```ts
+  // e2e.config.ts
+  import { join } from 'node:path'
+  cache: {
+    mode: 'read-write',
+    dir: process.env.CEZ_SHARED_CACHE_DIR ? join(process.env.CEZ_SHARED_CACHE_DIR, 'e2e') : '.e2e/cache',
+  },
+  ```
+
+  Parallel tasks on different branches can overwrite each other's recordings.
+  That costs a re-recording (model calls), never a wrong verdict: e2e verifies
+  the end state of every replay.
+- **The check knows its run.** `CEZ_RUN_ID`, `CEZ_PROJECT_ID`, `CEZ_WORKTREE`,
+  `CEZ_BRANCH`, `CEZ_BASE`, `CEZ_STEP_ID` and `CEZ_ATTEMPT`, plus
+  `CEZ_GITHUB_REPO`/`CEZ_GITHUB_NUMBER`/`CEZ_GITHUB_EVENT` on a run a GitHub
+  automation launched — see the [reference](reference.md#workflow-format).
 - **No timeout.** cezar does not bound a check step; e2e's own startup,
   test and exploration timeouts are what stop a hung app from holding the
   task's parallel slot. Keep them configured.

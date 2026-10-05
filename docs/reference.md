@@ -268,6 +268,22 @@ or in Settings → *Check credentials*. Names are `[A-Z_][A-Z0-9_]*`; `CEZ_*`,
 an exported `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` also reaches the agents and
 switches them to API billing.
 
+cezar also tells a check step about the run it is verifying. These are set by
+cezar, not settings — a variable the run does not have is absent (never empty),
+and a value inherited from the server's own environment is replaced:
+
+| Variable | Value |
+|---|---|
+| `CEZ_RUN_ID` | the run id |
+| `CEZ_PROJECT_ID` | the project id |
+| `CEZ_WORKTREE` | absolute path of the task's worktree (the check's cwd) |
+| `CEZ_BRANCH` | the run's branch |
+| `CEZ_BASE` | the recorded fork point |
+| `CEZ_STEP_ID` | this check step's id |
+| `CEZ_ATTEMPT` | 1-based attempt number of this check within the run |
+| `CEZ_SHARED_CACHE_DIR` | `~/.cezar/cache/<projectId>` (`0700`), shared by the project's tasks — e.g. an e2e replay cache |
+| `CEZ_GITHUB_REPO`, `CEZ_GITHUB_NUMBER`, `CEZ_GITHUB_EVENT` | runs a GitHub automation launched only |
+
 `onFail.retryOn` narrows the loop to the exit codes that mean *the work is
 wrong*. Omitted, any non-zero code loops back — right for `npm test`, which
 exits 1 whether a test failed or the runner could not start. A richer check
