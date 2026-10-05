@@ -3933,7 +3933,7 @@ export class RunManager {
           askParked: undefined,
         });
         this.store.appendEvent(runId, { type: 'lifecycle', message: `run stopped — ${message}` });
-      } else if (state.idleClosed && this.active.get(runId) === state) {
+      } else if (this.active.get(runId) === state && (await this.idleClosedFails(runId, state))) {
         const message = this.inactivityFailureMessage();
         const failedAt = finishedAt();
         this.store.updateStep(runId, stepId, { status: 'failed', error: message, finishedAt: failedAt });
@@ -4152,6 +4152,7 @@ export class RunManager {
     const retriesUsed = new Map<string, number>();
     let checkFailure: string | null = null;
     let runError: string | null = null;
+    let idleFailed = false;
     // `startRun` already persisted the task's attachments so a queued bubble can render them
     // (#612). Reuse those files for the agent-facing path note instead of minting
     // duplicate pasted files when execution finally begins.
@@ -4244,6 +4245,13 @@ export class RunManager {
           // the rail reads like any other finished step. An unanswered one is
           // marked by the settlement, alongside the run it failed.
           if (state.askPark === 'abandoned') this.finishStep(runId, step.id, 'done', undefined, emit);
+          break;
+        }
+        // The inactivity watchdog closed this step's session without a DONE
+        // (#689): the settlement below fails the step with the run, so it is not
+        // stamped `done` here first.
+        if (await this.idleClosedFails(runId, state)) {
+          idleFailed = true;
           break;
         }
         this.finishStep(runId, step.id, 'done', undefined, emit);
@@ -4340,7 +4348,7 @@ export class RunManager {
         'but the remaining workflow steps will not resume automatically';
       this.store.updateRun(runId, { status: 'failed', error, finishedAt, currentStepId: undefined });
       emit({ type: 'lifecycle', message: `run stopped — ${error}` });
-    } else if (state.idleClosed) {
+    } else if (idleFailed) {
       const error = this.inactivityFailureMessage();
       const run = this.store.getRun(runId);
       for (const s of run?.steps ?? []) {
@@ -5111,14 +5119,7 @@ export class RunManager {
    * off — settle straight to `done`, leaving the diff in the worktree untouched.
    */
   private async settleSuccess(runId: string): Promise<void> {
-    const run = this.store.getRun(runId);
-    let review = false;
-    if (run?.worktreePath && existsSync(run.worktreePath)) {
-      const diff = await worktreeDiff(run.worktreePath, run.baseBranch ?? 'HEAD');
-      const hasDiff = diff.trim().length > 0 && !diff.startsWith('(diff failed');
-      const config = await loadConfig(this.repoRoot);
-      review = hasDiff && reviewGateEnabled(config) && run.autonomous !== true;
-    }
+    const review = await this.reviewGateApplies(runId);
     this.store.updateRun(runId, {
       status: review ? 'review' : 'done',
       finishedAt: new Date().toISOString(),
@@ -5134,6 +5135,26 @@ export class RunManager {
         ? 'changes ready for review — send feedback, open a draft PR, or finish'
         : 'run finished',
     });
+  }
+
+  /** Whether settling this run now would park it at the review gate (#489). */
+  private async reviewGateApplies(runId: string): Promise<boolean> {
+    const run = this.store.getRun(runId);
+    if (!run?.worktreePath || !existsSync(run.worktreePath)) return false;
+    const diff = await worktreeDiff(run.worktreePath, run.baseBranch ?? 'HEAD');
+    const hasDiff = diff.trim().length > 0 && !diff.startsWith('(diff failed');
+    const config = await loadConfig(this.repoRoot);
+    return hasDiff && reviewGateEnabled(config) && run.autonomous !== true;
+  }
+
+  /**
+   * Whether an idle-closed session settles through the inactivity fallback
+   * below. Work that would park at the review gate keeps settling there:
+   * `review` is already the needs-you state, never a success badge, and it is
+   * the only place the diff and the draft-PR action live.
+   */
+  private async idleClosedFails(runId: string, state: ActiveRun): Promise<boolean> {
+    return state.idleClosed === true && !(await this.reviewGateApplies(runId));
   }
 
   /**
