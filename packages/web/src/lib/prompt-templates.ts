@@ -26,7 +26,8 @@ export interface PromptTemplate {
 }
 
 const LABEL_MAX = 80
-const TEXT_MAX = 2000
+/** Keep reusable templates bounded at the contract's documented 20,000-character limit (#908). */
+export const PROMPT_TEMPLATE_TEXT_LIMIT = 20_000
 const LIST_MAX = 50
 /** Matches the server's `ref` bound for a skill name (`uiStateSchema.lastTask.ref`). */
 const SKILL_NAME_MAX = 200
@@ -160,7 +161,7 @@ export function normalizePromptTemplates(raw: unknown): PromptTemplate[] {
     out.push({
       id,
       label: label.slice(0, LABEL_MAX),
-      text: text.slice(0, TEXT_MAX),
+      text: text.slice(0, PROMPT_TEMPLATE_TEXT_LIMIT),
       // Omitted rather than `[]` when empty: "assigned to nothing" and "no assignment field" mean
       // the same thing, and keeping one shape keeps the Settings dirty-check (a JSON compare)
       // from seeing a phantom edit on every load of an old ui-state.json.
