@@ -160,7 +160,7 @@ export function childSettleReport(
 ): { text: string; report: DispatchReport } {
   const own = child.dispatch?.report;
   const capReached = child.autoContinueCapReached === true;
-  const capNote = `automatic continue cap reached (${40}); the child stopped before reporting completion`;
+  const capNote = 'automatic continue cap reached; the child stopped before reporting completion';
   // A run that settled while still parked on its own question never got its answer: that is a
   // BLOCK, whatever cezar's terminal status says. A restart force-settles every `waiting` run as
   // `done`, and reporting that upward as success would turn "I stopped and asked before doing

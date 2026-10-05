@@ -16,7 +16,7 @@ Non-goals: Implementing the unmerged `retry_limit` feature from PR #1186, changi
 ### Phase 2: Regression coverage
 
 - [x] 2.1 Add isolated tests for cap report mapping and live cap settlement. — d462e581
-- [ ] 2.2 Run targeted tests and the configured validation gate.
+- [x] 2.2 Run targeted tests and the configured validation gate (full vitest retains 9 unrelated environment failures; other gate commands pass).
 
 ## Risks
 
@@ -34,4 +34,4 @@ The marker must survive waiting and restart, but must not leak into a later huma
 ### Phase 2: Regression coverage
 
 - [ ] 2.1 Add isolated tests for cap report mapping and live cap settlement.
-- [ ] 2.2 Run targeted tests and the configured validation gate.
+- [x] 2.2 Run targeted tests and the configured validation gate (full vitest retains 9 unrelated environment failures; other gate commands pass).

@@ -167,7 +167,7 @@ describe('childSettleReport', () => {
       record({ status: 'failed', autoContinueCapReached: true } as Partial<RunRecord> & { autoContinueCapReached: boolean }),
     );
     expect(silent.report.status).toBe('partial');
-    expect(silent.report.result).toContain('automatic continue cap reached (40)');
+    expect(silent.report.result).toContain('automatic continue cap reached');
 
     const claimedDone = childSettleReport(
       record({
