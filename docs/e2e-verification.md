@@ -216,11 +216,35 @@ for follow-ups.
 ## What cezar gives the check, and what it does not
 
 - **cwd** is the task's worktree, and the command runs under `bash -lc`.
-- **Environment** is the cezar server's own `process.env`. There is no
-  per-step `env:` — export the model credential your provider reads
-  (`AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, …) before starting cezar, or use
-  a subscription with `npx e2e login`. Tests with no agent step need no model
-  at all.
+- **Environment** is the cezar server's own `process.env` plus the project's
+  **check credentials** (below). There is no per-step `env:` — workflow files
+  are committed, and a secret does not belong in them. Tests with no agent step
+  need no model at all.
+- **Model credentials go in `cezar check-env`, not in your shell.** Store the
+  key your provider reads once per project:
+
+  ```bash
+  printf %s "$MY_GATEWAY_KEY" | cezar check-env set AI_GATEWAY_API_KEY
+  cezar check-env list            # names only — a value never comes back out
+  cezar check-env unset AI_GATEWAY_API_KEY
+  ```
+
+  (or Settings → *Check credentials* in the cockpit). `set` reads the value
+  from stdin — run it bare to type it at a hidden prompt — so it never lands
+  in shell history or `ps`. The values are handed to this project's **check
+  steps only**, are redacted from check output and from the failing output fed
+  back to the agent, and live in `~/.cezar/check-env/<project>.env` (`0600`,
+  outside the repo).
+
+  **Why not just `export ANTHROPIC_API_KEY` before starting cezar?** Because
+  cezar passes provider-prefixed variables (`ANTHROPIC_*`, `OPENAI_*`, …) to
+  the agents it starts. A key exported for e2e would reach every Claude Code or
+  Codex session too, and switch it from the subscription account you chose in
+  Agent accounts to API billing — silently. A check credential never reaches
+  an agent.
+- **Use an API key or a service-account key**, not a subscription login: a
+  check runs unattended, and `npx e2e login`-style sessions are not supported
+  there.
 - **`CI` is not set**, so e2e uses its local defaults: no retries, workers at
   half the cores, and a read-write replay cache — a verified `agent.act`
   recorded on one attempt replays without a model call on the next. Set `CI=1`

@@ -254,8 +254,19 @@ steps:
 ```
 
 `{{task}}` is replaced with the task text you typed. When a check fails and loops
-back, its failing output is appended to the retried agent's prompt so the next
-attempt can see what broke.
+back, its failing output — with host secrets, the run's registered secrets and
+known token shapes redacted — is appended to the retried agent's prompt so the
+next attempt can see what broke.
+
+A check step runs `bash -lc <command>` in the task's worktree with the server's
+environment plus the project's **check credentials**, which no agent step ever
+receives. Manage them with `cezar check-env list | set <NAME> | unset <NAME>`
+(`set` reads the value from stdin; nothing is taken from argv or printed back)
+or in Settings → *Check credentials*. Names are `[A-Z_][A-Z0-9_]*`; `CEZ_*`,
+`DYLD_*` and shell/loader variables (`PATH`, `HOME`, `NODE_OPTIONS`,
+`LD_PRELOAD`, …) are refused. This is where an e2e runner's model key belongs:
+an exported `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` also reaches the agents and
+switches them to API billing.
 
 `onFail.retryOn` narrows the loop to the exit codes that mean *the work is
 wrong*. Omitted, any non-zero code loops back — right for `npm test`, which
