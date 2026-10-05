@@ -10,12 +10,12 @@ Non-goals: Implementing the unmerged `retry_limit` feature from PR #1186, changi
 
 ### Phase 1: Durable cap settlement
 
-- [ ] 1.1 Persist the auto-continue-cap cause, clear it on a human continuation, and settle capped runs as failed/non-success.
-- [ ] 1.2 Synthesize a partial dispatch report with the cap note and preserve ordinary completion.
+- [x] 1.1 Persist the auto-continue-cap cause, clear it on a human continuation, and settle capped runs as failed/non-success. — d462e581
+- [x] 1.2 Synthesize a partial dispatch report with the cap note and preserve ordinary completion. — d462e581
 
 ### Phase 2: Regression coverage
 
-- [ ] 2.1 Add isolated tests for cap report mapping and live cap settlement.
+- [x] 2.1 Add isolated tests for cap report mapping and live cap settlement. — d462e581
 - [ ] 2.2 Run targeted tests and the configured validation gate.
 
 ## Risks
