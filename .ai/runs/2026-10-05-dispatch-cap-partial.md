@@ -28,10 +28,16 @@ The marker must survive waiting and restart, but must not leak into a later huma
 
 ### Phase 1: Durable cap settlement
 
-- [ ] 1.1 Persist the auto-continue-cap cause, clear it on a human continuation, and settle capped runs as failed/non-success.
-- [ ] 1.2 Synthesize a partial dispatch report with the cap note and preserve ordinary completion.
+- [x] 1.1 Persist the auto-continue-cap cause, clear it on a human continuation, and settle capped runs as failed/non-success. — 16d5a962
+- [x] 1.2 Synthesize a partial dispatch report with the cap note and preserve ordinary completion. — 16d5a962
 
 ### Phase 2: Regression coverage
 
-- [ ] 2.1 Add isolated tests for cap report mapping and live cap settlement.
-- [x] 2.2 Run targeted tests and the configured validation gate (full vitest retains 9 unrelated environment failures; other gate commands pass).
+- [x] 2.1 Add isolated tests for cap report mapping and live cap settlement. — 16d5a962
+- [ ] 2.2 Run targeted tests and the configured validation gate (targeted tests pass; server typecheck is currently blocked by pre-existing generated-contract drift and unrelated workspace/self-update errors; full gate remains pending).
+
+Validation evidence for the implementation commit:
+
+- `npm exec vitest run packages/cezar/src/dispatch/engine.test.ts --config packages/cezar/vitest.config.ts` — 20 passed.
+- `npm exec vitest run packages/cezar/src/workflows/autonomous-nudge.test.ts --config packages/cezar/vitest.config.ts` — 11 passed.
+- `npm run typecheck:server` — blocked by existing generated-contract/export drift and unrelated self-update/dashboard errors; no errors were reported in the changed dispatch/run files.
