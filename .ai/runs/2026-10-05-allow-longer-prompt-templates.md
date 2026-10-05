@@ -21,8 +21,8 @@ consistent limit across the API and cockpit.
 
 ### Phase 1: Trace and define the bound
 
-- [ ] 1.1 Align the contract, server validator, and browser normalization/editor at 20,000 characters.
-- [ ] 1.2 Add server and browser regression tests for accepted long input and oversized rejection.
+- [x] 1.1 Align the contract, server validator, and browser normalization/editor at 20,000 characters. — 1b89e450
+- [x] 1.2 Add server and browser regression tests for accepted long input and oversized rejection. — 1b89e450
 
 ### Phase 2: Verify and publish
 
