@@ -279,6 +279,76 @@ for follow-ups.
 - **Cancelling a task** sends SIGTERM to the running check, and e2e stops the
   app process it started.
 
+## Verify a pull request
+
+A task's check already gates its own changes before the review gate. To verify
+**someone else's open pull request** — a teammate's, a bot's — use a GitHub
+automation whose worktree is the PR's head instead of the base branch:
+
+```json
+{
+  "name": "Browser e2e on every new PR",
+  "kind": "github",
+  "events": ["pull_request.opened"],
+  "task": {
+    "prompt": "Verify #{{github.number}}",
+    "checkout": "pr-head",
+    "steps": [
+      {
+        "id": "e2e",
+        "name": "Browser e2e on PR head",
+        "command": "npm ci --prefer-offline --no-audit >/dev/null\nnpx e2e run --reporter list,markdown --max-failures 3; code=$?\nif [ -f .e2e/summary.md ] && [ -n \"$CEZ_GITHUB_NUMBER\" ]; then\n  gh pr comment \"$CEZ_GITHUB_NUMBER\" --repo \"$CEZ_GITHUB_REPO\" --edit-last --create-if-none --body-file .e2e/summary.md\nfi\nexit $code"
+      }
+    ]
+  }
+}
+```
+
+(`cezar automation create --file verify-prs.json` — created paused; preview it
+with `cezar automation check <id>` before enabling.) The workflow has no agent
+step: the check is the whole job, and the run settles like any other.
+
+What `checkout: "pr-head"` does at launch:
+
+1. reads the PR (`gh api repos/<repo>/pulls/<n>`); a PR that is no longer open
+   launches nothing — the execution log says `skipped: pr-not-open`;
+2. a head from a **fork** launches nothing (`skipped: fork-head`) unless the
+   automation sets `"allowForkHeads": true`;
+3. fetches the head into `refs/cezar/pr/<n>` — a ref, never a branch, so
+   nothing appears in your branch list — and forks the task's worktree from
+   that commit. If the PR moved between the poll and the launch, the fetched
+   commit is what is tested, and the run says so;
+4. a fetch or `gh` failure launches nothing (`failed: pr-head-unavailable`,
+   with the reason); Retry in the execution log tries again.
+
+The check gets `CEZ_PR_HEAD_SHA`, `CEZ_PR_HEAD_REF` and `CEZ_PR_BASE_REF` on
+top of the usual run context, the PR shows as the task's referenced pull
+request, and diffs measure only what the run changed on top of the PR. The
+ref is deleted with the last run that needs it.
+
+**Fork heads are untrusted code.** An admitted fork's checks run **without the
+project's check credentials** — the same rule GitHub Actions applies to fork
+PRs, and the one e2e's own security model asks for. A fork check therefore has
+no model key; agent-driven tests in it will fail on the missing credential
+(exit 2) rather than run a stranger's code with your key.
+
+**A PR-head run cannot publish.** Its branch holds the whole PR under the
+run's own changes, so *Draft PR* answers `409` instead of re-proposing someone
+else's PR into your base. Report back from the check itself, as above —
+`--edit-last --create-if-none` keeps one comment per PR. If your `gh` predates
+`--create-if-none`, use two calls: `gh pr comment … --edit-last || gh pr comment …`.
+
+`pull_request.opened` fires once per PR; re-verifying on every push needs an
+event the poller cannot see yet.
+
+## On every PR, in CI
+
+For teams that already run CI, the recommended "every PR" path is a GitHub
+Actions workflow using `@e2e-dev/github`, not a cezar automation: keep the model
+key in **repository secrets**, and leave fork PRs out (GitHub does not give
+them secrets either). cezar's automation is for the machine you already run
+cezar on, with no CI to configure.
+
 ## Cost
 
 Every agent step in a test and every exploration step is model calls, charged
