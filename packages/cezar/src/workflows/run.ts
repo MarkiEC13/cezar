@@ -105,6 +105,7 @@ import { resolveProfileEnvForRoot } from '../workspace/agent-profiles.ts';
 import { DEFAULT_AGENT_ACCOUNT_ID } from '../workspace/agent-accounts.ts';
 import { WorkspaceSemaphore, type AccountHolds } from '../workspace/semaphore.ts';
 import { CheckEnv } from '../workspace/check-env.ts';
+import { prunePrHeadRefs } from '../automations/pr-head.ts';
 import { MIN_SECRET_LEN } from '../core/secret-redaction.ts';
 import { UiEventSink } from '../runs/ui-event-sink.ts';
 import type { UiEvent } from '../core/ui-events.ts';
@@ -631,6 +632,14 @@ export interface StartRunInput {
    *  and make the task bubble render the stack's images as its own. In-memory
    *  only: rebuilt from the record on every hydration, never persisted. */
   stackedImages?: ContentBlock[];
+  /**
+   * Fork the worktree from this commit instead of the configured base (spec
+   * 2026-10-06-agentic-e2e-checks Phase 3) — a pull request's fetched head. Internal: only
+   * `checkout: 'pr-head'` automations set it; `POST /runs` has no such field. Recorded as the
+   * run's `baseBranch`, so diffs measure only what this run changed on top of the PR, and it
+   * forces a worktree — testing a PR in the user's own checkout would test the wrong tree.
+   */
+  forkRef?: { sha: string; label: string; pr: RunRecord['prHead'] & object; prUrl: string; untrusted: boolean };
 }
 
 /**
@@ -1254,6 +1263,8 @@ export class RunManager {
       // its commits, and an in-place run has no branch to fork. Overridden on the INPUT, which is
       // what `execute()` reads, not only on the record.
       ...(input.dispatchIntent && input.worktree === false ? { worktree: undefined } : {}),
+      // A pull-request head is verified in its own worktree, never in the user's checkout.
+      ...(input.forkRef && input.worktree === false ? { worktree: undefined } : {}),
     };
     const run = this.store.createRun({
       title: makeRunTitle(input.task, workflow) + (group ? ` (${group.variant})` : ''),
@@ -1275,7 +1286,7 @@ export class RunManager {
       autonomous: input.autonomous === true,
       // Persist the explicit opt-out so queued-run restart recovery and the
       // session Git routes can distinguish it from a removed isolated worktree.
-      worktree: !group && !input.dispatchIntent && input.worktree === false ? false : undefined,
+      worktree: !group && !input.dispatchIntent && !input.forkRef && input.worktree === false ? false : undefined,
       groupId: group?.groupId,
       variant: group?.variant,
       steps: workflow.steps.map((s) => ({ id: s.id, name: s.name ?? s.id, kind: stepKind(s) })),
@@ -1283,6 +1294,18 @@ export class RunManager {
     // Persist the full definition so a queued run survives a restart (#367) —
     // ad-hoc "(planned)" chains exist nowhere else to re-resolve from.
     this.store.updateRun(run.id, { workflowDef: workflow });
+    // A pull-request head run (spec 2026-10-06-agentic-e2e-checks Phase 3): the fetched sha is
+    // recorded as the fork point BEFORE the run is queued, so `execute` — and a restart that
+    // revives the queued run — forks from it through the "recorded fork point wins" rule rather
+    // than re-resolving the configured base. The PR becomes the run's referenced pull request.
+    if (input.forkRef) {
+      this.store.updateRun(run.id, {
+        baseBranch: input.forkRef.sha,
+        prHead: input.forkRef.pr,
+        ...(input.forkRef.untrusted ? { untrustedHead: true } : {}),
+      });
+      this.store.recordPrRef(run.id, { number: input.forkRef.pr.number, url: input.forkRef.prUrl, origin: 'marker' });
+    }
     // The run's place in a dispatch tree (spec 2026-09-10-dispatch), written the way
     // automation provenance is (`automations/task-template.ts`): an update straight after create,
     // rather than a tenth key on `createRun`'s parameter object. Persisting it here — not merely
@@ -5645,7 +5668,10 @@ export class RunManager {
    * than the host-secret floor are not, or a flag like `=1` would redact every `1` in the log.
    */
   private async checkStepEnv(runId: string, state: ActiveRun, stepId: string): Promise<NodeJS.ProcessEnv> {
-    const checkEnv = this.projectId ? await this.checkEnv.values(this.projectId, this.repoRoot) : {};
+    // A fork's head is untrusted code (Phase 3): like GitHub Actions withholding secrets from fork
+    // PRs, its checks get the server env only — the credentials are neither read nor handed over.
+    const untrusted = this.store.getRun(runId)?.untrustedHead === true;
+    const checkEnv = this.projectId && !untrusted ? await this.checkEnv.values(this.projectId, this.repoRoot) : {};
     this.store.registerRunSecrets(
       runId,
       Object.values(checkEnv).filter((value) => value.length >= MIN_SECRET_LEN),
@@ -5686,7 +5712,24 @@ export class RunManager {
       context.CEZ_GITHUB_NUMBER = String(github.number);
       context.CEZ_GITHUB_EVENT = run.automation.event;
     }
+    if (run?.prHead) {
+      context.CEZ_PR_HEAD_SHA = run.prHead.headSha;
+      context.CEZ_PR_HEAD_REF = run.prHead.headRef;
+      context.CEZ_PR_BASE_REF = run.prHead.baseRef;
+    }
     return context;
+  }
+
+  /**
+   * Delete the `refs/cezar/pr/<n>` refs no run with a live worktree still needs (Phase 3).
+   * Called after every worktree-removal path; idempotent and never throws.
+   */
+  async sweepPrHeadRefs(): Promise<void> {
+    const needed = new Set<number>();
+    for (const run of this.store.listRuns()) {
+      if (run.prHead && run.worktreePath && existsSync(run.worktreePath)) needed.add(run.prHead.number);
+    }
+    await prunePrHeadRefs(this.repoRoot, needed).catch(() => undefined);
   }
 
   private async runCheckStep(

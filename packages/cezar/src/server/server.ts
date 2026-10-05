@@ -18,7 +18,7 @@ import { ProjectAutomationScheduler, ProjectTrackerAutomationScheduler, Workspac
 import { ScheduleRunner } from '../automations/schedule-runner.ts';
 import { automationStats } from '../automations/stats.ts';
 import { automationTemplatesOf } from '../automations/templates.ts';
-import { launchAutomationRun, launchScheduledRun, launchTrackerAutomationRun, rebaselineIdleAutomations, reconcileAutomationReceipts, validateAutomationPrompt } from '../automations/task-template.ts';
+import { AutomationLaunchOutcome, launchAutomationRun, launchScheduledRun, launchTrackerAutomationRun, rebaselineIdleAutomations, reconcileAutomationReceipts, validateAutomationPrompt } from '../automations/task-template.ts';
 import {
   automationEventSchema,
   automationFiltersSchema,
@@ -3947,7 +3947,15 @@ export function createApp(deps: ServerDeps) {
         emitAutomationChange(project, definition.id, definition.revision);
         return c.json({ receiptId: receipt.receiptId, runId: launched.runId }, 202);
       } catch (error) {
-        store.appendReceipt({ ...reserved, status: 'launch-error', error: error instanceof Error ? error.message : String(error), updatedAt: new Date().toISOString() });
+        // A `pr-head` retry whose PR has since closed (or turned out a fork) is handled, not
+        // broken: a terminal `skipped` receipt, so Retry stops being offered for it.
+        const skipped = error instanceof AutomationLaunchOutcome && error.result === 'skipped';
+        store.appendReceipt({
+          ...reserved,
+          status: skipped ? 'skipped' : 'launch-error',
+          ...(skipped ? {} : { error: (error instanceof Error ? error.message : String(error)).slice(0, 2_000) }),
+          updatedAt: new Date().toISOString(),
+        });
         return c.json({ error: error instanceof Error ? error.message : String(error) }, 409);
       } finally {
         mutation.release();
@@ -4790,6 +4798,15 @@ export function createApp(deps: ServerDeps) {
       const run = store.getRun(id);
       if (!run) return c.json({ error: 'not found' }, 404);
       if (manager.isActive(id)) return c.json({ error: 'run is still active — wait for the review gate' }, 409);
+      // A pull-request head run's branch holds the whole foreign PR under this run's changes: a
+      // draft PR from it into the default base would re-propose that PR (spec
+      // 2026-10-06-agentic-e2e-checks Phase 3). Refused until publishing back is designed.
+      if (run.prHead) {
+        return c.json(
+          { error: `this run verified pull request #${run.prHead.number}; publishing its changes is not supported yet` },
+          409,
+        );
+      }
       if (!run.worktreePath || !existsSync(run.worktreePath) || !run.branch) {
         return c.json(
           {
@@ -4833,6 +4850,7 @@ export function createApp(deps: ServerDeps) {
       if (manager.isActive(id)) return c.json({ error: 'run is active — cancel it first' }, 409);
       if (run.worktreePath) await removeWorktree(repoRoot, run.worktreePath, run.branch);
       store.updateRun(id, { worktreePath: undefined, branch: undefined });
+      if (run.prHead) await manager.sweepPrHeadRefs();
       return c.json({ removed: true });
     })
 
@@ -4844,7 +4862,10 @@ export function createApp(deps: ServerDeps) {
       if (!run) return c.json({ error: 'not found' }, 404);
       // Delete cleans up after itself: worktree + branch go with the run (spec 006).
       if (run.worktreePath) await removeWorktree(repoRoot, run.worktreePath, run.branch);
-      return store.deleteRun(id) ? c.json({ deleted: true }) : c.json({ error: 'not found' }, 404);
+      const deleted = store.deleteRun(id);
+      // The run's `refs/cezar/pr/<n>` goes with the last run that needed it (Phase 3).
+      if (deleted && run.prHead) await manager.sweepPrHeadRefs();
+      return deleted ? c.json({ deleted: true }) : c.json({ error: 'not found' }, 404);
     });
 
   // ---- chained family: in-task drafts (project-scoped) ----------------------
@@ -5041,6 +5062,7 @@ export function createApp(deps: ServerDeps) {
           message: `variant ${winner.variant ?? '?'} was picked — this variant is archived, its worktree removed`,
         });
       }
+      if (losers.some((loser) => loser.prHead)) await manager.sweepPrHeadRefs();
       // Spread: `getRun` may answer undefined, and an undefined VALUE is dropped by
       // JSON.stringify — so writing the key unconditionally typed the route as sending a key it
       // does not. contract/workflows.ts says `.optional()`, which is what a client receives.
