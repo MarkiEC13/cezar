@@ -38,6 +38,8 @@ The marker must survive waiting and restart, but must not leak into a later huma
 
 Validation evidence for the implementation commit:
 
+Status: complete. Independent review approved at exact head `1178a161`; focused dispatch engine tests 20/20, parent cap suite 31/31, and remote CI/CodeQL/package checks pass.
+
 - `npm exec vitest run packages/cezar/src/dispatch/engine.test.ts --config packages/cezar/vitest.config.ts` — 20 passed.
 - `npm exec vitest run packages/cezar/src/workflows/autonomous-nudge.test.ts --config packages/cezar/vitest.config.ts` — 11 passed.
 - `npm run typecheck:server` — local checkout blocked by generated-contract/export drift and unrelated self-update/dashboard errors; clean final-head CI typecheck passed.
