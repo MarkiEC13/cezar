@@ -22,7 +22,7 @@ Recognize verified OpenCode 2.x stored-credential rows and successful empty list
 
 - [x] 1.1 Add service fixtures for verified OpenCode 2.x non-empty and empty stored-credential rows, proving the pre-fix regression. — 43ba8a95
 - [x] 1.2 Extend the OpenCode parser minimally to recognize the 2.x row format without weakening legacy malformed-output guards. — 43ba8a95
-- [ ] 1.3 Run targeted tests, full validation, review the diff, and publish the completed PR.
+- [x] 1.3 Run targeted tests, full validation, review the diff, and publish the completed PR. — babc3847
 
 ## Risks
 
@@ -38,4 +38,6 @@ PR: #1271
 
 - [x] 1.1 Add service fixtures for verified OpenCode 2.x non-empty and empty stored-credential rows, proving the pre-fix regression. — 43ba8a95
 - [x] 1.2 Extend the OpenCode parser minimally to recognize the 2.x row format without weakening legacy malformed-output guards. — 43ba8a95
-- [ ] 1.3 Run targeted tests, full validation, review the diff, and publish the completed PR.
+- [x] 1.3 Run targeted tests, full validation, review the diff, and publish the completed PR. — babc3847
+
+Status: complete. Independent review approved at exact head `babc3847`; provider-auth tests 119/119 and remote CI/CodeQL/package checks pass.
