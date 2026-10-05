@@ -28,6 +28,13 @@ consistent limit across the API and cockpit.
 
 - [ ] 2.1 Run targeted tests, the full validation gate, and review the final diff.
 
+Verification note: targeted server/browser tests pass (60 tests) and the Prompt templates settings
+suite passes (16 tests). The configured gate was attempted in order: `npm run typecheck` and
+`npm run build` fail on unrelated stale contract/generated-artifact exports, `npm test` has
+unrelated worktree/dashboard/automation failures, `npm run test:unit` passes (36 tests), and
+`npm run test:package` lacks generated build artifacts. GitHub forbids approving this PR from its
+own author account, so an independent review is still required before this PR can be marked ready.
+
 ## Risks
 
 The prompt-template value is persisted in ui-state.json, so increasing the bounded field size
