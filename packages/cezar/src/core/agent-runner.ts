@@ -97,6 +97,21 @@ export function isSignalTerminationExit(exitCode: number | null): boolean {
   return exitCode === 130 || exitCode === 137 || exitCode === 143;
 }
 
+/** True only for provider responses that explicitly say the requested session is gone. */
+export function isMissingSessionError(message: string, backend: AgentBackend): boolean {
+  if (backend === 'opencode') return /\b(?:404|not found)\b/i.test(message) && /session/i.test(message);
+  if (backend === 'codex') {
+    return /\b(?:thread|session)\b.*\b(?:not found|does not exist|no such|missing)\b/i.test(message)
+      || /\bno rollout found for thread\b/i.test(message);
+  }
+  if (backend === 'claude' || backend === 'claude-cli') {
+    return /\b(?:session|conversation)\b.*\b(?:not found|does not exist|no such|missing)\b/i.test(message)
+      || /\b(?:not found|does not exist|no such)\b.*\b(?:session|conversation)\b/i.test(message)
+      || /\bno conversation found\b/i.test(message);
+  }
+  return false;
+}
+
 /** The slice of `ChildProcess` a termination tracker needs — keeps the helper
  *  usable from the transport layer and from test fakes alike. */
 export interface TrackableChild {
