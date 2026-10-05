@@ -2621,9 +2621,6 @@ export class RunManager {
     if (!run) return false;
     const pending = run.autoResumeAt !== undefined || this.autoResumeTimers.has(runId);
     this.clearAutoResume(runId);
-    // A human Continue is a fresh chance to finish. Retire the marker before the new session
-    // starts; an unattended park/restart leaves it intact for child settlement reporting.
-    this.store.updateRun(runId, { autoContinueCapReached: undefined });
     if (pending) {
       this.store.appendEvent(runId, {
         type: 'note',
@@ -3206,6 +3203,11 @@ export class RunManager {
         // The session closed while we waited: keep the message the way the ladder would.
         if (!this.enqueueMessage(runId, content)) this.deferMessage(runId, content);
       });
+      if (userAuthored) {
+        // The message was accepted into the asynchronous resume ladder, so it is already a
+        // human continuation even though the backend send happens after the repo lease returns.
+        this.store.updateRun(runId, { autoContinueCapReached: undefined });
+      }
       return true;
     }
 
@@ -3246,6 +3248,11 @@ export class RunManager {
     const delivered = state.session.sendMessage(deliverable);
     if (delivered) {
       for (const write of imageLibraryWrites) write();
+      // A live user message is also an accepted human continuation. Synthetic scheduler and
+      // dispatch messages use userAuthored=false, so they cannot erase the unattended-cap cause.
+      if (userAuthored) {
+        this.store.updateRun(runId, { autoContinueCapReached: undefined });
+      }
       this.clearPendingAsk(runId);
       this.clearIdleTimer(state);
       this.clearMonitoringWakeTimer(state, runId);
@@ -3404,6 +3411,12 @@ export class RunManager {
     // human got there first — and then the counter starts over, because the cap only exists to
     // bound UNATTENDED resumes.
     this.clearAutoResume(runId);
+    // Only an explicitly accepted human Continue starts a fresh cap epoch. Unattended recovery
+    // and child-report continuations pass deferForCapacity=true and must preserve the durable
+    // cause until the child settles and reports partial.
+    if (!deferForCapacity) {
+      this.store.updateRun(runId, { autoContinueCapReached: undefined });
+    }
 
     const continuations = run.steps.filter((s) => s.id.startsWith('continue-')).length;
     const stepId = `continue-${continuations + 1}`;

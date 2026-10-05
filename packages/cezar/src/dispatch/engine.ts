@@ -185,11 +185,16 @@ export function childSettleReport(
         } satisfies DispatchReport)
       : ({
           status: statusToReportStatus(child.status, capReached),
-          result:
-            (capReached ? capNote : undefined) ||
-            context.resumeNotes?.trim() ||
-            child.error?.trim() ||
-            'no structured report — the run settled without calling `cez task report`',
+          result: capReached
+            ? [
+                capNote,
+                context.resumeNotes?.trim(),
+                child.error?.trim(),
+                'no structured report — the run settled without calling `cez task report`',
+              ].filter(Boolean).join(' — ')
+            : context.resumeNotes?.trim() ||
+              child.error?.trim() ||
+              'no structured report — the run settled without calling `cez task report`',
           evidence: [],
           side_effects: [],
           errors: child.error ? [child.error] : [],
