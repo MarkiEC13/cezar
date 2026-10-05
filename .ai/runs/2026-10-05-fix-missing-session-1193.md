@@ -22,21 +22,19 @@ When Continue cannot reopen a previously recorded Claude, Codex, or OpenCode ses
 ### Phase 2: Regression evidence
 
 - [x] 2.1 Add classifier regression tests for Claude, Codex and OpenCode — `7074d62e`
-- [ ] 2.2 Add real Continue lifecycle coverage for fallback context, reports/inbox, attachments, cancellation, and nonmissing errors.
-- [ ] 2.3 Run the full validation gate and manual QA where configured.
+- [x] 2.2 Add real Continue lifecycle coverage for fallback context, reports/inbox, attachments, cancellation, and nonmissing errors — `2b475df3`, `ee64f7e2`.
+- [x] 2.3 Run the full validation gate and manual QA where configured — CI `37315219781` passed at `ee64f7e2`.
 
 ## Status
 
-Status: in-progress
+Status: complete
 
-The independent review found a typecheck failure in the first lifecycle harness. The harness now uses
-the complete `AgentRunResult` shape and includes a public `continueRun` regression proving fresh
-attachments and prior history survive the one-time fallback. Reports/inbox and cancellation coverage
-remain part of the final gate; the repository typecheck currently has pre-existing contract-parity and
-runner-union failures outside this PR.
+The independent review corrected the lifecycle harness and added restart-recovery coverage proving one
+missing-session fallback, ordinary waiting/settlement, no repeated recovery on the next boot, and
+terminal behavior for genuine fallback failures. Full CI passed at the exact final head.
 
 ## Outcome
 
-The classifier and runner fallback are implemented; merge remains blocked until lifecycle regression evidence and the configured validation/QA gates are complete.
+The classifier and runner fallback are implemented and independently reviewed; all configured CI gates pass at the exact final head.
 
 PR: #1281
