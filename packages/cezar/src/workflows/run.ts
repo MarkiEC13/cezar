@@ -2621,6 +2621,9 @@ export class RunManager {
     if (!run) return false;
     const pending = run.autoResumeAt !== undefined || this.autoResumeTimers.has(runId);
     this.clearAutoResume(runId);
+    // A human Continue is a fresh chance to finish. Retire the marker before the new session
+    // starts; an unattended park/restart leaves it intact for child settlement reporting.
+    this.store.updateRun(runId, { autoContinueCapReached: undefined });
     if (pending) {
       this.store.appendEvent(runId, {
         type: 'note',
@@ -5069,6 +5072,8 @@ export class RunManager {
    */
   private async settleSuccess(runId: string): Promise<void> {
     const run = this.store.getRun(runId);
+    const capReached = run?.autoContinueCapReached === true;
+    const capError = `automatic continue cap reached (${MAX_AUTO_CONTINUES}); continue this task manually`;
     let review = false;
     if (run?.worktreePath && existsSync(run.worktreePath)) {
       const diff = await worktreeDiff(run.worktreePath, run.baseBranch ?? 'HEAD');
@@ -5077,7 +5082,8 @@ export class RunManager {
       review = hasDiff && reviewGateEnabled(config) && run.autonomous !== true;
     }
     this.store.updateRun(runId, {
-      status: review ? 'review' : 'done',
+      status: capReached ? 'failed' : review ? 'review' : 'done',
+      ...(capReached ? { error: capError } : {}),
       finishedAt: new Date().toISOString(),
       currentStepId: undefined,
       // A run that got all the way to a settled turn is not in a limit loop, so the resume
@@ -5087,7 +5093,9 @@ export class RunManager {
     });
     this.store.appendEvent(runId, {
       type: 'lifecycle',
-      message: review
+      message: capReached
+        ? `run stopped — ${capError}`
+        : review
         ? 'changes ready for review — send feedback, open a draft PR, or finish'
         : 'run finished',
     });
@@ -5278,7 +5286,17 @@ export class RunManager {
     //  - the budget brake (Q6 ii): a run that has spent its ceiling stops spending.
     if (dispatchTurn.dispatched || dispatchTurn.overBudget) return false;
     if (dispatchTurn.hasDispatch && ask) return false;
-    if ((state.autoContinues ?? 0) >= MAX_AUTO_CONTINUES) return false;
+    if ((state.autoContinues ?? 0) >= MAX_AUTO_CONTINUES) {
+      if (this.store.getRun(runId)?.autoContinueCapReached !== true) {
+        this.store.updateRun(runId, { autoContinueCapReached: true });
+        this.store.appendEvent(runId, {
+          type: 'note',
+          stepId,
+          message: `autonomous — automatic continue cap reached (${MAX_AUTO_CONTINUES}); the run is parked for manual continuation`,
+        });
+      }
+      return false;
+    }
     if (state.cancelled) return false;
     // A question repeated verbatim after a nudge is not a preference the agent can settle on
     // its own — it is a blocker (the cockpit refused `cez task create`, a login is missing) that

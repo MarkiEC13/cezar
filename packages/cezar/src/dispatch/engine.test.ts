@@ -162,6 +162,28 @@ describe('childTaskEnvelope', () => {
 });
 
 describe('childSettleReport', () => {
+  it('reports an automatically capped child as partial, even if its terminal status is failed or it filed done', () => {
+    const silent = childSettleReport(
+      record({ status: 'failed', autoContinueCapReached: true } as Partial<RunRecord> & { autoContinueCapReached: boolean }),
+    );
+    expect(silent.report.status).toBe('partial');
+    expect(silent.report.result).toContain('automatic continue cap reached (40)');
+
+    const claimedDone = childSettleReport(
+      record({
+        status: 'failed',
+        autoContinueCapReached: true,
+        dispatch: {
+          rootRunId: 'm',
+          parentRunId: 'p',
+          report: { status: 'done', result: 'made progress', evidence: [], side_effects: [], errors: [], suggestions: [] },
+        },
+      } as Partial<RunRecord> & { autoContinueCapReached: boolean }),
+    );
+    expect(claimedDone.report.status).toBe('partial');
+    expect(claimedDone.report.result).toContain('made progress');
+  });
+
   it('reports what the child said, with the branch its parent has to merge', () => {
     const child = record({
       id: 'c9',

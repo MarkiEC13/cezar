@@ -214,8 +214,13 @@ describe('autonomous mode nudges at turn end instead of parking (#autonomous)', 
     expect(notes[MAX_AUTO_CONTINUES - 1]).toContain(
       `(${MAX_AUTO_CONTINUES}/${MAX_AUTO_CONTINUES})`,
     );
-    // The cap hands the run back exactly as a non-autonomous turn end does.
+    // The cap hands the run back exactly as a non-autonomous turn end does, but records why so
+    // settlement and a dispatched parent's report cannot mistake it for completed work.
     expect(store.getRun(record.id)?.activity).toBeUndefined();
+    expect(store.getRun(record.id)?.autoContinueCapReached).toBe(true);
+    expect(manager.finish(record.id)).toBe(true);
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.error).toContain(`automatic continue cap reached (${MAX_AUTO_CONTINUES})`);
   }, 180_000);
 
   it('parks on a question the agent repeats after a nudge instead of nudging it to the cap', async () => {
