@@ -27,7 +27,13 @@ When Continue cannot reopen a previously recorded Claude, Codex, or OpenCode ses
 
 ## Status
 
-Implementation is under independent review. The fallback attachment forwarding correction is pending on this PR.
+Status: in-progress
+
+The independent review found a typecheck failure in the first lifecycle harness. The harness now uses
+the complete `AgentRunResult` shape and includes a public `continueRun` regression proving fresh
+attachments and prior history survive the one-time fallback. Reports/inbox and cancellation coverage
+remain part of the final gate; the repository typecheck currently has pre-existing contract-parity and
+runner-union failures outside this PR.
 
 ## Outcome
 
