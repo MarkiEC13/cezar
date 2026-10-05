@@ -104,7 +104,14 @@ import { DEFAULT_AGENT_ACCOUNT_ID } from '../workspace/agent-accounts.ts';
 import { WorkspaceSemaphore, type AccountHolds } from '../workspace/semaphore.ts';
 import { UiEventSink } from '../runs/ui-event-sink.ts';
 import type { UiEvent } from '../core/ui-events.ts';
-import { chainStepNote, DEFAULT_ALLOWED_TOOLS, stepKind, type WorkflowDef, type WorkflowStepDef } from './types.ts';
+import {
+  chainStepNote,
+  DEFAULT_ALLOWED_TOOLS,
+  retryableExit,
+  stepKind,
+  type WorkflowDef,
+  type WorkflowStepDef,
+} from './types.ts';
 import { freshContinuationContext } from './continuation-context.ts';
 
 const CHECK_OUTPUT_CAP = 20_000;
@@ -1629,8 +1636,9 @@ export class RunManager {
    *    workflowDef (or the catalog by name for older records);
    *  - `waiting` → the turn was over and the ball was in the user's court —
    *    settle exactly like a closed session (review/done, Continue still works),
-   *    unless `askParked` says the workflow stopped mid-way on a question (#917),
-   *    which settles `failed` instead so unrun steps are not reported as done;
+   *    unless `askParked` says the run stopped on an unanswered `CEZ:ASK` (#917),
+   *    which settles `failed` instead so unrun steps are not reported as done,
+   *    with `awaitingAnswerSince` so the task still reads as "needs you";
    *  - `running` → mark interrupted, then immediately resume the last agent
    *    session via the Continue path, pointing the agent at its handoff file.
    * Call once, before the server starts taking requests.
@@ -1673,6 +1681,8 @@ export class RunManager {
             error: 'interrupted — cezar process exited while the task was waiting for an answer',
             finishedAt: interruptedAt,
             currentStepId: undefined,
+            // A restart does not answer the question: the task stays under "needs you".
+            awaitingAnswerSince: interruptedAt,
           });
           this.store.appendEvent(run.id, {
             type: 'lifecycle',
@@ -3674,6 +3684,14 @@ export class RunManager {
           (dispatchTurn.dispatched || endsWithMonitoringMarker(turnText));
         turnText = '';
         for (const note of askNotes) this.store.appendEvent(runId, { type: 'note', ...note, stepId });
+        // The twin of `runAgentStep`'s rule (#1282): a turn retires the question park an earlier
+        // turn left standing, and the waiting branch below sets it again only when THIS turn asks
+        // and parks. A stale park would settle an idle close as an unanswered question and keep
+        // a task under "needs you" that is no longer asking anything.
+        if (state.askPark === 'waiting') {
+          state.askPark = undefined;
+          if (this.store.getRun(runId)?.askParked) this.store.updateRun(runId, { askParked: undefined });
+        }
         if (done) {
           // Goal achieved (agent contract, #347) — same as in runAgentStep.
           this.store.appendEvent(runId, { type: 'lifecycle', message: 'goal achieved — session closed' });
@@ -3931,6 +3949,8 @@ export class RunManager {
           finishedAt: failedAt,
           currentStepId: undefined,
           askParked: undefined,
+          // The question is still unanswered: the run stays under "needs you" (see `execute`).
+          awaitingAnswerSince: failedAt,
         });
         this.store.appendEvent(runId, { type: 'lifecycle', message: `run stopped — ${message}` });
       } else if (this.active.get(runId) === state && (await this.idleClosedFails(runId, state))) {
@@ -3956,11 +3976,14 @@ export class RunManager {
       if (!state.cancelled && this.active.get(runId) === state) {
         this.store.updateStep(runId, stepId, { status: 'failed', error: message, finishedAt: finishedAt() });
         appendHandoffHeartbeat(this.dataDir, runId, `step "${stepId}" complete — status=failed`);
+        const failedAt = finishedAt();
         this.store.updateRun(runId, {
           status: 'failed',
           error: `continue failed: ${message}`,
-          finishedAt: finishedAt(),
+          finishedAt: failedAt,
           currentStepId: undefined,
+          // A session that crashed while parked on a question leaves that question unanswered.
+          ...(state.askPark === 'waiting' ? { awaitingAnswerSince: failedAt } : {}),
         });
         this.store.appendEvent(runId, { type: 'lifecycle', message: `continue failed — ${message}` });
       }
@@ -4259,12 +4282,27 @@ export class RunManager {
         continue;
       }
 
-      const { ok, output } = await this.runCheckStep(state, step, emit);
+      const { ok, output, exitCode } = await this.runCheckStep(state, step, emit);
       if (state.cancelled) break;
       if (ok) {
         this.finishStep(runId, step.id, 'done', undefined, emit);
         i++;
         continue;
+      }
+
+      // A failure the check itself says is not about the diff (`onFail.retryOn`)
+      // ends the run here: looping back would spend a full agent attempt on a
+      // cause that is not in the worktree, twice over.
+      if (step.onFail && !retryableExit(step.onFail.retryOn, exitCode)) {
+        const codes = (step.onFail.retryOn ?? []).join(', ');
+        emit({
+          type: 'note',
+          stepId: step.id,
+          message: `check exited ${exitCode} — not retried (onFail.retryOn: ${codes})`,
+        });
+        this.finishStep(runId, step.id, 'failed', `\`${step.command}\` exited ${exitCode}`, emit);
+        runError = `check "${step.id}" exited ${exitCode}, which onFail.retryOn (${codes}) does not retry`;
+        break;
       }
 
       const used = retriesUsed.get(step.id) ?? 0;
@@ -4326,7 +4364,14 @@ export class RunManager {
       this.store.updateRun(runId, { status: 'cancelled', finishedAt, currentStepId: undefined });
       emit({ type: 'lifecycle', message: 'run cancelled' });
     } else if (runError) {
-      this.store.updateRun(runId, { status: 'failed', error: runError, finishedAt, currentStepId: undefined });
+      this.store.updateRun(runId, {
+        status: 'failed',
+        error: runError,
+        finishedAt,
+        currentStepId: undefined,
+        // A crash or a wall-clock timeout while parked on a question does not answer it either.
+        ...(askPark === 'waiting' ? { awaitingAnswerSince: finishedAt } : {}),
+      });
       emit({ type: 'lifecycle', message: `run failed — ${runError}` });
     } else if (askPark === 'waiting') {
       // The question was never answered, so the steps behind it never ran.
@@ -4346,7 +4391,15 @@ export class RunManager {
       const error =
         'the session closed before the question was answered — continue to answer it, ' +
         'but the remaining workflow steps will not resume automatically';
-      this.store.updateRun(runId, { status: 'failed', error, finishedAt, currentStepId: undefined });
+      // `awaitingAnswerSince`: closing the session freed the process and the slot, but the
+      // question is still the user's to answer, so the task keeps reading as "needs you".
+      this.store.updateRun(runId, {
+        status: 'failed',
+        error,
+        finishedAt,
+        currentStepId: undefined,
+        awaitingAnswerSince: finishedAt,
+      });
       emit({ type: 'lifecycle', message: `run stopped — ${error}` });
     } else if (idleFailed) {
       const error = this.inactivityFailureMessage();
@@ -4562,6 +4615,16 @@ export class RunManager {
           !dispatchTurn.overBudget &&
           (dispatchTurn.dispatched || endsWithMonitoringMarker(turnText));
         const parksWorkflow = !interactive && (ask !== null || monitoring);
+        // A turn that does not park retires a park an earlier turn left standing. The park is
+        // otherwise cleared only by `sendMessage`, and a parked session can wake without one:
+        // Claude Code re-invokes the model itself when a background command or sub-agent it
+        // started finishes. Left in place, a later `CEZ:DONE` settled the step as a question
+        // nobody answered and the workflow never reached its next step (live run 2c2d2e34).
+        // `abandoned` is Finish's and stays — it must still stop the workflow here.
+        if (!parksWorkflow && state.askPark === 'waiting') {
+          state.askPark = undefined;
+          if (this.store.getRun(runId)?.askParked) this.store.updateRun(runId, { askParked: undefined });
+        }
         turnText = '';
         for (const note of askNotes) emit({ type: 'note', stepId: step.id, ...note });
         if (done) {
@@ -5565,7 +5628,7 @@ export class RunManager {
     state: ActiveRun,
     step: WorkflowStepDef,
     emit: (event: { type: string; stepId?: string; [k: string]: unknown }) => void,
-  ): Promise<{ ok: boolean; output: string }> {
+  ): Promise<{ ok: boolean; output: string; exitCode: number }> {
     const command = step.command as string;
     emit({ type: 'note', stepId: step.id, message: `$ ${command}` });
     return new Promise((resolve) => {
@@ -5586,13 +5649,17 @@ export class RunManager {
         state.interrupt = () => undefined;
         const message = `failed to spawn: ${err.message}`;
         emit({ type: 'check-output', stepId: step.id, command, text: message, exitCode: -1 });
-        resolve({ ok: false, output: message });
+        resolve({ ok: false, output: message, exitCode: -1 });
       });
       child.on('close', (code) => {
         state.interrupt = () => undefined;
         const trimmed = output.trim() || '(no output)';
-        emit({ type: 'check-output', stepId: step.id, command, text: trimmed, exitCode: code ?? -1 });
-        resolve({ ok: code === 0, output: trimmed });
+        // `code` is null when a signal killed the child; -1 then, the same value an
+        // unspawnable command reports, and one no `retryOn` list can name — neither
+        // is a verdict on the diff, so neither buys the agent another attempt.
+        const exitCode = code ?? -1;
+        emit({ type: 'check-output', stepId: step.id, command, text: trimmed, exitCode });
+        resolve({ ok: code === 0, output: trimmed, exitCode });
       });
     });
   }

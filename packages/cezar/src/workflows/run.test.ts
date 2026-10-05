@@ -1528,6 +1528,32 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
   }, 30_000);
 
   /**
+   * A parked step can wake WITHOUT cezar delivering anything: Claude Code re-invokes the model
+   * itself when a background command or sub-agent it started finishes. Writing straight into the
+   * session reproduces that — `manager.sendMessage`, the only path that clears the park, never
+   * runs. A later turn that declares `CEZ:DONE` must still finish the step and run the next one,
+   * not be settled as a question nobody answered (live run 2c2d2e34).
+   */
+  it('a self-woken intermediate monitoring park that ends with CEZ:DONE resumes the workflow', async () => {
+    const record = manager.startRun(PASSING_CHECK, { task: 'mock:monitoring keep going', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.activity === 'monitoring');
+
+    const live = (manager as unknown as {
+      active: Map<string, { session?: { sendMessage(content: { type: 'text'; text: string }[]): boolean } }>;
+    }).active.get(record.id);
+    expect(live?.session?.sendMessage([{ type: 'text', text: 'mock:done background task finished' }])).toBe(true);
+
+    await waitFor(record.id, (r) => r?.status === 'done' || r?.status === 'failed');
+    expect(store.getRun(record.id)?.status).toBe('done');
+    expect(steps(record.id)).toEqual([
+      { id: 'implement', status: 'done' },
+      { id: 'verify', status: 'done' },
+    ]);
+    expect(manager.isActive(record.id)).toBe(false);
+  }, 30_000);
+
+  /**
    * The park has to have EXITS, not just an entrance. Everything below drives one
    * of them: without them a run parked at an intermediate ask could never be
    * cancelled, finished or settled once its session closed, and — never reaching
@@ -1622,6 +1648,110 @@ describe('CEZ:ASK parks as waiting and emits ask.requested (#473)', () => {
       delete process.env.CEZ_REVIEW_GATE;
     }
   }, 30_000);
+
+  /**
+   * The user did not answer, so the task still needs them. Closing the idle session frees the
+   * process and the slot, and the record is `failed` because nothing is running — but it carries
+   * `awaitingAnswerSince`, which is what keeps it under "needs you" in the cockpit instead of
+   * filing it as an outcome. Answering through Continue retires it.
+   */
+  it('keeps an unanswered final ask awaiting the user after the idle close, until Continue answers it', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'mock:ask which library?', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+    expect(store.getRun(record.id)?.awaitingAnswerSince).toBeUndefined(); // live: plain `waiting`
+
+    const live = (manager as unknown as {
+      active: Map<string, { idleClosed?: boolean; session?: { end(): void } }>;
+    }).active.get(record.id)!;
+    live.idleClosed = true;
+    live.session!.end();
+
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    const settled = store.getRun(record.id)!;
+    expect(settled.awaitingAnswerSince).toBeDefined();
+    expect(settled.awaitingAnswerSince).toEqual(settled.finishedAt);
+    expect(settled.error).toContain('before the question was answered');
+    await vi.waitFor(() => expect(manager.isActive(record.id)).toBe(false), { timeout: 15_000 });
+
+    expect(manager.continueRun(record.id, { text: 'mock:done use zod' })).toEqual({ ok: true });
+    await waitFor(record.id, (r) => r?.status === 'done' || r?.status === 'review');
+    expect(store.getRun(record.id)?.awaitingAnswerSince).toBeUndefined();
+  }, 40_000);
+
+  it('keeps an unanswered ask awaiting the user when the parked session fails instead of idling out', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'mock:ask which library?', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+    const live = (manager as unknown as {
+      active: Map<string, { session?: { sendMessage(content: { type: 'text'; text: string }[]): boolean } }>;
+    }).active.get(record.id)!;
+    // A raw write (no `deliverMessage`, so the question stays pending) whose turn errors out —
+    // the session dies with the question still open.
+    expect(live.session!.sendMessage([{ type: 'text', text: 'mock:auth-error' }])).toBe(true);
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.awaitingAnswerSince).toBeDefined();
+  }, 40_000);
+
+  it('keeps an ask raised on a continuation awaiting the user after its idle close', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'do the first thing', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+    expect(manager.finish(record.id)).toBe(true); // continueRun only accepts a terminal run
+    await waitFor(record.id, (r) => ['done', 'review'].includes(r?.status ?? ''));
+    await vi.waitFor(() => expect(manager.isActive(record.id)).toBe(false), { timeout: 15_000 });
+    expect(manager.continueRun(record.id, { text: 'mock:ask which library?' })).toEqual({ ok: true });
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+
+    const live = (manager as unknown as {
+      active: Map<string, { idleClosed?: boolean; session?: { end(): void } }>;
+    }).active.get(record.id)!;
+    live.idleClosed = true;
+    live.session!.end();
+
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.awaitingAnswerSince).toBeDefined();
+    expect(store.getRun(record.id)?.askParked).toBeUndefined();
+  }, 40_000);
+
+  /**
+   * The continuation twin of #1282. A session can wake WITHOUT cezar delivering anything (Claude
+   * Code re-invokes the model when a background command finishes), so `sendMessage` — which clears
+   * the park — never runs. A later turn that asks nothing must retire the earlier question, or the
+   * idle close would report a task that stopped asking as still waiting on the user.
+   */
+  it('a self-woken continuation turn that asks nothing retires the earlier question', async () => {
+    const record = manager.startRun(SINGLE_STEP, { task: 'do the first thing', worktree: false });
+    currentId = record.id;
+    await waitFor(record.id, (r) => r?.status === 'waiting');
+    expect(manager.finish(record.id)).toBe(true);
+    await waitFor(record.id, (r) => ['done', 'review'].includes(r?.status ?? ''));
+    await vi.waitFor(() => expect(manager.isActive(record.id)).toBe(false), { timeout: 15_000 });
+    expect(manager.continueRun(record.id, { text: 'mock:ask which library?' })).toEqual({ ok: true });
+    await waitFor(record.id, (r) => r?.status === 'waiting' && r.askParked === true);
+
+    const live = (manager as unknown as {
+      active: Map<string, {
+        askPark?: string;
+        idleClosed?: boolean;
+        session?: { end(): void; sendMessage(content: { type: 'text'; text: string }[]): boolean };
+      }>;
+    }).active.get(record.id)!;
+    expect(live.askPark).toBe('waiting');
+    const asksBefore = readEvents(record.id).filter((e) => e.type === 'ask.requested').length;
+    expect(live.session!.sendMessage([{ type: 'text', text: 'background task finished, nothing to ask' }])).toBe(true);
+    // The raw write bypasses `deliverMessage`, so the record never leaves `waiting`; the retired
+    // durable park is what shows the self-woken turn ended.
+    await waitFor(record.id, (r) => r?.status === 'waiting' && r.askParked === undefined);
+    expect(live.askPark).toBeUndefined();
+    expect(readEvents(record.id).filter((e) => e.type === 'ask.requested')).toHaveLength(asksBefore);
+
+    live.idleClosed = true;
+    live.session!.end();
+    await waitFor(record.id, (r) => r?.status === 'failed');
+    expect(store.getRun(record.id)?.error).toContain('after inactivity');
+    expect(store.getRun(record.id)?.awaitingAnswerSince).toBeUndefined();
+  }, 40_000);
 
   it('clears stale inactivity evidence when a continuation answer arrives', async () => {
     const record = manager.startRun(SINGLE_STEP, { task: 'just do the thing', worktree: false });
@@ -2061,6 +2191,8 @@ describe('recover() over a mid-workflow ask park (#917)', () => {
     // The check never ran, and recovery must not pretend otherwise.
     expect(recovered?.steps.map((s) => s.status)).toEqual(['failed', 'pending']);
     expect(recovered?.askParked).toBeUndefined();
+    // A restart does not answer the question: the task keeps reading as "needs you".
+    expect(recovered?.awaitingAnswerSince).toEqual(recovered?.finishedAt);
   });
 
   /**
@@ -2099,6 +2231,7 @@ describe('recover() over a mid-workflow ask park (#917)', () => {
     const recovered = store.getRun(id);
     expect(recovered?.status).toBe('done');
     expect(recovered?.steps.map((s) => s.status)).toEqual(['done', 'pending']);
+    expect(recovered?.awaitingAnswerSince).toBeUndefined();
   });
 
   /** Records written before #917 have no `askParked` key at all — they must keep
