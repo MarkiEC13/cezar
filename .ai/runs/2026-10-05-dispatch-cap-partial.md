@@ -16,7 +16,7 @@ Non-goals: Implementing the unmerged `retry_limit` feature from PR #1186, changi
 ### Phase 2: Regression coverage
 
 - [x] 2.1 Add isolated tests for cap report mapping, cancellation durability, live messages, and human continuation settlement. — 16d5a962
-- [x] 2.2 Run targeted tests and the configured validation gate — final-head CI 37252338825 passed all jobs; CodeQL 37252338817 passed. Local typecheck/build were blocked by stale generated-contract/export drift and unrelated workspace/self-update errors, but clean CI verified the full gate. — ee705c01
+- [x] 2.2 Run targeted tests and the configured validation gate — final-head CI 37302641815 passed all jobs; CodeQL 37302641731 passed. Local typecheck/build were blocked by stale generated-contract/export drift and unrelated workspace/self-update errors, but clean CI verified the full gate. — 315195e0
 
 ## Risks
 
@@ -34,12 +34,12 @@ The marker must survive waiting and restart, but must not leak into a later huma
 ### Phase 2: Regression coverage
 
 - [x] 2.1 Add isolated tests for cap report mapping and live cap settlement. — 16d5a962
-- [x] 2.2 Run targeted tests and the configured validation gate — final-head CI 37252338825 passed all jobs; CodeQL 37252338817 passed. Local typecheck/build were blocked by stale generated-contract/export drift and unrelated workspace/self-update errors, but clean CI verified the full gate. — ee705c01
+- [x] 2.2 Run targeted tests and the configured validation gate — final-head CI 37302641815 passed all jobs; CodeQL 37302641731 passed. Local typecheck/build were blocked by stale generated-contract/export drift and unrelated workspace/self-update errors, but clean CI verified the full gate. — 315195e0
 
 Validation evidence for the implementation commit:
 
 - `npm exec vitest run packages/cezar/src/dispatch/engine.test.ts --config packages/cezar/vitest.config.ts` — 20 passed.
 - `npm exec vitest run packages/cezar/src/workflows/autonomous-nudge.test.ts --config packages/cezar/vitest.config.ts` — 11 passed.
 - `npm run typecheck:server` — local checkout blocked by generated-contract/export drift and unrelated self-update/dashboard errors; clean final-head CI typecheck passed.
-- Final-head CI `37252338825` — passed: typecheck, unit, server/cockpit suites, build, packaged CLI E2E, release-package verification, and publish snapshot.
-- Final-head CodeQL `37252338817` — passed: JavaScript/TypeScript and Actions analysis.
+- Final-head CI `37302641815` — passed: typecheck, unit, server/cockpit suites, build, packaged CLI E2E, release-package verification, and publish snapshot.
+- Final-head CodeQL `37302641731` — passed: JavaScript/TypeScript and Actions analysis.
