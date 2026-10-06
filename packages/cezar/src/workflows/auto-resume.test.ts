@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClaudeCliRunner } from '../core/claude-cli-runner.ts';
+import type { AgentBackend, AgentRunSpec } from '../core/agent-runner.ts';
 import * as runnerFactory from '../core/runner-factory.ts';
 import { RunStore } from '../runs/store.ts';
 import { WorkspaceSemaphore } from '../workspace/semaphore.ts';
@@ -18,6 +18,23 @@ import type { WorkflowDef } from './types.ts';
 
 const run = promisify(execFile);
 const GIT_ID = ['-c', 'user.name=test', '-c', 'user.email=test@local'];
+
+// Use the bundled dry-run transport for every selected backend, while capturing the
+// shared runner inputs. This checks workflow routing, not another provider's transport.
+function mockRunnerSessions(transformSpec: (spec: AgentRunSpec, invocation: number) => AgentRunSpec = (spec) => spec) {
+  const sessions: { backend: AgentBackend | undefined; spec: AgentRunSpec }[] = [];
+  const createRunner = runnerFactory.createRunner;
+  vi.spyOn(runnerFactory, 'createRunner').mockImplementation((backend) => {
+    const runner = createRunner('claude');
+    const startSession = runner.startSession.bind(runner);
+    vi.spyOn(runner, 'startSession').mockImplementation((spec, onEvent, opts) => {
+      sessions.push({ backend, spec });
+      return startSession(transformSpec(spec, sessions.length), onEvent, opts);
+    });
+    return runner;
+  });
+  return sessions;
+}
 
 /**
  * Auto-resume after a provider usage limit, end to end through the real engine
@@ -77,7 +94,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
       else process.env[key] = value;
     }
     store.flush();
-    rmSync(repoRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    rmSync(repoRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('schedules the resume for the provider\'s reset instant plus the grace', async () => {
@@ -109,12 +126,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     { restart: 'queued', worktree: true },
     { restart: 'queued-without-counter', worktree: false },
   ])('continues the workflow after a limit (restart=$restart, worktree=$worktree)', async ({ restart, worktree }) => {
-    // Exercise the mixed-backend routing without launching a real Codex CLI.
-    const createRunner = runnerFactory.createRunner;
-    vi.spyOn(runnerFactory, 'createRunner').mockImplementation((backend) =>
-      backend === 'codex' ? new ClaudeCliRunner() : createRunner(backend),
-    );
-    const sessions = vi.spyOn(ClaudeCliRunner.prototype, 'startSession');
+    const sessions = mockRunnerSessions();
     const chain: WorkflowDef = {
       name: 'plan-and-review',
       source: 'built-in',
@@ -189,7 +201,8 @@ describe('a run stopped by a usage limit resumes itself', () => {
     expect(resumed?.startedAt).toBe(originalStartedAt);
     expect(resumed?.autoResumeAt).toBeUndefined();
     expect(resumed?.autoResumeAttempts).toBeUndefined();
-    const resumeSpec = sessions.mock.calls.find(([spec]) => spec.resume)?.[0];
+    expect(sessions.map(({ backend }) => backend)).toEqual(['claude', 'claude', 'claude', 'codex']);
+    const resumeSpec = sessions.find(({ spec }) => spec.resume)?.spec;
     expect(resumeSpec).toMatchObject({
       sessionId: planSession, resume: true, allowedTools: ['Read'], bashAllowlist: ['git status'],
     });
@@ -212,13 +225,10 @@ describe('a run stopped by a usage limit resumes itself', () => {
   }, 40_000);
 
   it('keeps the check retry budget when the retried agent hits a limit', async () => {
-    const startSession = ClaudeCliRunner.prototype.startSession;
-    let invocations = 0;
-    vi.spyOn(ClaudeCliRunner.prototype, 'startSession').mockImplementation(function (this: ClaudeCliRunner, spec, onEvent, opts) {
-      invocations++;
-      // First attempt reaches the failing check; the check's one retry hits the usage limit.
-      return startSession.call(this, invocations === 3 ? { ...spec, userPrompt: 'mock:limit retry the plan' } : spec, onEvent, opts);
-    });
+    // First attempt reaches the failing check; the check's one retry hits the usage limit.
+    const sessions = mockRunnerSessions((spec, invocation) =>
+      invocation === 3 ? { ...spec, userPrompt: 'mock:limit retry the plan' } : spec,
+    );
     const chain: WorkflowDef = {
       name: 'bounded-retry', source: 'built-in', steps: [
         { id: 'plan', prompt: '{{task}}' },
@@ -237,11 +247,10 @@ describe('a run stopped by a usage limit resumes itself', () => {
     await manager.recover();
     await expect.poll(() => store.getRun(record.id)?.autoResumeAt, { timeout: 20_000 }).toBeUndefined();
     await expect.poll(() => store.getRun(record.id)?.error, { timeout: 20_000 }).toContain('check "check" failed after 2 attempts');
-    expect(invocations).toBe(5);
-    const planSessions = vi.mocked(ClaudeCliRunner.prototype.startSession).mock.calls;
-    expect(planSessions[3]?.[0].resume).toBe(true);
+    expect(sessions).toHaveLength(5);
+    expect(sessions[3]?.spec.resume).toBe(true);
     // The pending review retained its first session id; rerunning it still starts a fresh one.
-    expect(planSessions[4]?.[0].resume).toBeUndefined();
+    expect(sessions[4]?.spec.resume).toBeUndefined();
   }, 40_000);
 
   it('leaves the run plainly failed when the setting is off', async () => {

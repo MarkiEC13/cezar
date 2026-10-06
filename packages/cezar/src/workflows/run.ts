@@ -2369,7 +2369,7 @@ export class RunManager {
   /**
    * The window has reopened. Re-check the record synchronously — hours may have passed, and the
    * user may have continued, deleted or cancelled the run in them — then hand the resume to the
-   * ordinary queued-continuation path so it obeys both concurrency caps like any other work.
+   * ordinary scheduler so it obeys both concurrency caps like any other work.
    */
   private fireAutoResume(runId: string): void {
     this.autoResumeTimers.delete(runId);
@@ -2382,9 +2382,7 @@ export class RunManager {
       return;
     }
     const attempts = (run.autoResumeAttempts ?? 0) + 1;
-    // #1300: a workflow interruption must return to its executor, not finish as a standalone
-    // Continue. The failed step/session + workflowDef are already durable, so queued recovery
-    // can reconstruct the same checkpoint without another persisted state format.
+    // #1300: resume the saved workflow so later steps execute after the interrupted session.
     const workflowStep = this.interruptedWorkflowStep(run);
     let resumed: { ok: boolean; error?: string };
     if (workflowStep && run.workflowDef) {
@@ -4035,7 +4033,7 @@ export class RunManager {
 
   private async execute(runId: string, workflow: WorkflowDef, input: StartRunInput, ownerToken?: symbol): Promise<void> {
     const original = this.store.getRun(runId);
-    // The retry counter bounds unattended attempts; it is not the workflow checkpoint (#1300).
+    // The step/session checkpoint survives missing optional attempt accounting.
     let resumeStep = original ? this.interruptedWorkflowStep(original) : undefined;
     const state: ActiveRun = {
       ownerToken: ownerToken ?? Symbol('run-owner'),
@@ -4104,7 +4102,7 @@ export class RunManager {
       if (worktreePath && existsSync(worktreePath)) state.cwd = worktreePath;
     }
     if (resumeStep && state.cwd !== this.repoRoot) {
-      // Reuse the tree as the agent left it, including a branch it checked out itself (#1300).
+      // Reuse the tree as the agent left it, including a branch it checked out itself.
       this.armAutosave(runId, state);
       emit({ type: 'note', message: 'resuming in the existing task worktree' });
     } else if (repo && input.worktree === false) {
@@ -4500,7 +4498,7 @@ export class RunManager {
      *  paths are appended to `userPrompt` so the agent can operate on the
      *  real files, not just view the inline image blocks. */
     attachments: PersistedAttachment[] = [],
-    /** Reopen this workflow step's provider session after a usage-limit interruption (#1300). */
+    /** Reopen this workflow step's provider session after a usage-limit interruption. */
     resumeStep?: StepState,
   ): Promise<string | null> {
     let systemPrompt: string | undefined;
