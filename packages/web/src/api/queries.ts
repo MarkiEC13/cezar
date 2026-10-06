@@ -38,6 +38,8 @@ import {
   getRunCommits,
   getRepoChanges,
   getRepoCommit,
+  getRepoFile,
+  getRepoTree,
   getRun,
   getRunChanges,
   getRunDiff,
@@ -212,6 +214,12 @@ export const queryKeys = {
     return [queryScope(), 'repo', 'changes'] as const
   },
   repoCommit: (sha: string) => [queryScope(), 'repo', 'commit', sha] as const,
+  /** The Files sub-tab's path index (#1279) — also under `repo`, so a branch switch invalidates
+   *  the tree along with the diff. */
+  get repoTree() {
+    return [queryScope(), 'repo', 'tree'] as const
+  },
+  repoFile: (path: string) => [queryScope(), 'repo', 'file', path] as const,
   get uiState() {
     return [queryScope(), 'ui-state'] as const
   },
@@ -1260,6 +1268,30 @@ export function useRepoChanges() {
   return useQuery({
     queryKey: queryKeys.repoChanges,
     queryFn: ({ signal }) => getRepoChanges({ signal }),
+    retry: false,
+  })
+}
+
+/** The repository's path index behind the Git tab's Files sub-tab (#1279). Same 409 stance as the
+ *  rest of the family: "not a git repository" is an answer, not a hiccup. One read per visit feeds
+ *  both the tree and the filter — `/repo/*` is deliberately not on the SSE stream, so freshness
+ *  rides the family's `refetchOnWindowFocus` default rather than a poll. */
+export function useRepoTree() {
+  return useQuery({
+    queryKey: queryKeys.repoTree,
+    queryFn: ({ signal }) => getRepoTree({ signal }),
+    retry: false,
+  })
+}
+
+/** One repository file for the Files sub-tab's viewer. `path` is `undefined` while nothing is
+ *  selected. A 409 ("path is not in the repository index: …", "symlinks are not served: …") is the
+ *  server's answer, so retries are off; cached per path, making re-selection free. */
+export function useRepoFile(path: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.repoFile(path ?? ''),
+    queryFn: ({ signal }) => getRepoFile(path as string, { signal }),
+    enabled: path !== undefined && path !== '',
     retry: false,
   })
 }
