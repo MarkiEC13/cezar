@@ -28,6 +28,8 @@ Scope note: the brief names the question cap. The option cap is raised in the sa
 
 ## Progress
 
+PR: #1312
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Widen the schema
@@ -43,9 +45,9 @@ Scope note: the brief names the question cap. The option cap is raised in the sa
 
 ### Phase 3: Teach and document
 
-- [ ] 3.1 New bounds in the `handoff.ts` structured-question prompt and `AGENT_PROTOCOL.md`.
-- [ ] 3.2 `BACKWARD_COMPATIBILITY.md`: the marker accepts more, the record shape is unchanged.
-- [ ] 3.3 Full validation gate and PR.
+- [x] 3.1 New bounds in the `handoff.ts` structured-question prompt and `AGENT_PROTOCOL.md`. — e4478bf3
+- [x] 3.2 `BACKWARD_COMPATIBILITY.md`: the marker accepts more, the record shape is unchanged. — e4478bf3
+- [x] 3.3 Full validation gate and PR. — typecheck, npm test (8925 passed / 0 failed), test:unit, build, test:package all exit 0 with a cleared env.
 
 ## Risks
 
