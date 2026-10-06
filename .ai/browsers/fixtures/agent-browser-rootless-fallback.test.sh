@@ -24,10 +24,13 @@ mkdir -p "$TMP/bin" "$TMP/home/.agent-browser/deps/lib" "$TMP/home/.cache/agent-
 
 cat > "$TMP/bin/agent-browser" <<'EOF'
 #!/bin/sh
-case "${1:-}" in
+COMMAND=${1:-}
+[ "$COMMAND" = "--session" ] && COMMAND=${3:-}
+case "$COMMAND" in
   install) exit 0 ;;
   --version) echo "fixture-agent-browser 0.0.0" ;;
   doctor)
+    [ "${FAKE_DOCTOR_ALWAYS_FAIL:-}" = 1 ] && exit 1
     case ",${AGENT_BROWSER_ARGS:-}," in *,--no-sandbox,*) ;; *) exit 1 ;; esac
     case ":${LD_LIBRARY_PATH:-}:" in *".agent-browser/deps/lib"*) exit 0 ;; *) exit 1 ;; esac
     ;;
@@ -72,6 +75,7 @@ run_case() {
 EMPTY_HOME="$TMP/empty-home"
 mkdir -p "$EMPTY_HOME"
 run_case failure "$EMPTY_HOME" 1 >/dev/null
+export FAKE_DOCTOR_ALWAYS_FAIL=1
 SUCCESS_OUTPUT=$(run_case fallback "$TMP/home" 0)
 grep -F 'BROWSER_INSTALLED=1' "$SUCCESS_OUTPUT" >/dev/null
 grep -F 'BROWSER_ENV_LD_LIBRARY_PATH=' "$SUCCESS_OUTPUT" >/dev/null
