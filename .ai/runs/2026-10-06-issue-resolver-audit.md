@@ -25,7 +25,7 @@ Issue labels can be stale; urgency ranking is provisional until source verificat
 ### Phase 1: Audit
 - [x] 1.1 Rank five actionable uncovered defects with disjoint scopes — audited at 02634469
 ### Phase 2: Delegate
-- [ ] 2.1 Dispatch five implementation children
+- [x] 2.1 Dispatch five implementation children — all codex/gpt-5.6-luna
 ### Phase 3: Verify
 - [ ] 3.1 Validate child reports and evidence
 - [ ] 3.2 Obtain final independent review and report
@@ -42,3 +42,7 @@ Ranked among uncovered, actionable work (higher-severity reports are already cov
 5. #870: narrow model-picker description clipping. Scope picker-pill component/tests only. Foreign assignee wojciechszyjka last activity August 11 (assignment/labels, no comments, no covering PR); use transparent stale-lock recovery under claim-pr.md and restore assignee on handback.
 
 Corrected audit was partially accepted: #894/#701 evidence checked; #1007 rejected because #1128 already fixes it. Parent independently searched all 121 PR bodies/titles for numeric issue references and inspected source and live issue metadata for these five. #804 has recent recurrence evidence but must reverify each half before changing it; no artificial defect or weak test allowed. All implementers must recheck coverage/claims immediately before work.
+
+## Initial verification: #890 / PR #1294
+Child head 32e33c48: parent inspected descriptor, fixture and generated-script diff. Independently reran shell fixture: PASS on fixed head, RED (exit 1, BROWSER_INSTALLED=0) against exact origin/main descriptor. Changes also reach .ai/scripts/test-env-up.sh and e2e.sh to preserve required environment; final reviewer must inspect this justified scope extension. Fixture propagation assertions use a synthetic JSON object rather than actual generated launcher, so actual propagation remains a review/testing concern. Full gate and live-browser limitations remain unresolved; draft/partial is accurate. PR inherits parent audit plan from fork; remove that unrelated artifact in final cleanup if safe. No code merged.
+Fifth implementation dispatched: #870 b9563f2a-c892-4fe0-a8d5-da19aa701230. Total seven children used (two audits, five implementation), exactly one final-review task reserved.
