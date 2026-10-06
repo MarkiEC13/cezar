@@ -34,12 +34,13 @@ mechanism, or modifying unrelated descriptors/plans.
   sandbox/environment propagation in the descriptor. — a78cb6ba
 - [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and
   exported environment values; prove the old descriptor fails where practical. — a78cb6ba
-- [ ] 2.3 Run the descriptor harness and relevant documentation checks, then inspect
-  the complete diff for scope creep.
+- [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect
+  the complete diff for scope creep. — a8a657b3
 
 ### Phase 3: completion
 
-- [ ] 3.1 Run the configured validation gate and any available real-browser smoke.
+- [x] 3.1 Run the configured validation gate and any available real-browser smoke.
+  — gate attempted; blocked by unrelated baseline failures; real binary unavailable
 - [ ] 3.2 Run the authoritative PR review/autofix workflow, update the PR evidence,
   and finalize the PR without merging main.
 
@@ -63,9 +64,9 @@ mechanism, or modifying unrelated descriptors/plans.
 
 - [x] 2.1 Implement the minimal staged-library fallback and justified rootless sandbox/environment propagation in the descriptor. — a78cb6ba
 - [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical. — a78cb6ba
-- [ ] 2.3 Run the descriptor harness and relevant documentation checks, then inspect the complete diff for scope creep.
+- [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect the complete diff for scope creep. — a8a657b3
 
 ### Phase 3: completion
 
-- [ ] 3.1 Run the configured validation gate and any available real-browser smoke.
+- [x] 3.1 Run the configured validation gate and any available real-browser smoke. — gate attempted; blocked by unrelated baseline failures; real binary unavailable
 - [ ] 3.2 Run the authoritative PR review/autofix workflow, update the PR evidence, and finalize the PR without merging main.
