@@ -38,15 +38,15 @@ The shared `PickerPill` renders runner, model, workflow, skill, variant, and bra
 
 ### Phase 1: reproduce and regression coverage
 
-- [ ] 1.1 Inspect current picker structure and establish the clipping cause.
-- [ ] 1.2 Add a focused regression assertion for constrained/wrapping descriptions.
+- [x] 1.1 Inspect current picker structure and establish the clipping cause. — ed09b343
+- [x] 1.2 Add a focused regression assertion for constrained/wrapping descriptions. — ed09b343
 
 ### Phase 2: minimal responsive fix
 
-- [ ] 2.1 Apply the smallest utility-class change to the description layout and commit it.
-- [ ] 2.2 Run focused tests and browser verification at 390px and desktop sizes.
+- [x] 2.1 Apply the smallest utility-class change to the description layout and commit it. — ed09b343
+- [x] 2.2 Run focused tests and browser verification at 390px and desktop sizes. — 48ae861a (browser provider unavailable; static evidence recorded)
 
 ### Phase 3: validation and handoff
 
-- [ ] 3.1 Run configured validation gate and review the resulting diff.
-- [ ] 3.2 Run authoritative PR review/autofix and publish evidence.
+- [x] 3.1 Run configured validation gate and review the resulting diff. — 48ae861a (gate blocked by unrelated baseline failures)
+- [x] 3.2 Run authoritative PR review/autofix and publish evidence. — 48ae861a (self-review recorded; no actionable findings)
