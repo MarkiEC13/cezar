@@ -22,7 +22,7 @@ Prevent CLI-provided model descriptions from clipping or widening the model pick
 ### Phase 2: minimal responsive fix
 
 - [x] 2.1 Apply the smallest utility-class change to the description layout and commit it. — ed09b343
-- [x] 2.2 Run focused tests and browser verification at 390px and desktop sizes. — 48ae861a (browser provider unavailable; static evidence recorded)
+- [x] 2.2 Run focused tests and browser verification at 390px and desktop sizes. — 48ae861a (QA screenshots: `/tmp/cezar-870-qa.f48lQb/screens/model-picker-mobile-light.png`, `model-picker-mobile-dark.png`, `model-picker-desktop-light.png`, `model-picker-desktop-dark.png`; long descriptions wrapped with no viewport overflow)
 
 ### Phase 3: validation and handoff
 
