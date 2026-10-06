@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildChildEnv } from '../core/agent-env.ts';
 import { RunStore } from '../runs/store.ts';
 import { CheckEnv } from '../workspace/check-env.ts';
-import { RunManager } from './run.ts';
+import { CHECK_CONTEXT_VARS, RunManager } from './run.ts';
 import type { WorkflowDef } from './types.ts';
 
 const run = promisify(execFile);
@@ -173,7 +173,7 @@ describe('run context for check steps', () => {
 
   beforeEach(async () => {
     repoRoot = mkdtempSync(join(tmpdir(), 'cez-check-context-'));
-    for (const key of ['CEZ_DRY_RUN', 'CEZ_RUN_ID', 'CEZ_GITHUB_NUMBER']) savedEnv[key] = process.env[key];
+    for (const key of ['CEZ_DRY_RUN', 'CEZ_RUN_ID', 'CEZ_GITHUB_NUMBER', 'CEZ_PROJECT_ID']) savedEnv[key] = process.env[key];
     process.env.CEZ_DRY_RUN = '1';
     // What a cezar started inside another cezar task inherits: it must never leak through.
     process.env.CEZ_RUN_ID = 'outer-task';
@@ -237,11 +237,68 @@ describe('run context for check steps', () => {
       CEZ_ATTEMPT: '1',
     });
     expect(seen.CEZ_SHARED_CACHE_DIR).toBe(join(process.env.CEZ_HOME!, 'cache', PROJECT));
-    // Absent, not empty — including the stale values this process inherited.
+    // Absent, not empty — including the stale values this process inherited. Driven off
+    // `CHECK_CONTEXT_VARS` rather than a second hand-written list, so a name added to the strip
+    // list without a value cannot quietly stop being asserted here.
+    const expected = new Set(Object.keys(seen));
+    for (const name of CHECK_CONTEXT_VARS) {
+      if (expected.has(name)) continue;
+      expect(seen).not.toHaveProperty(name);
+    }
     for (const name of ['CEZ_GITHUB_REPO', 'CEZ_GITHUB_NUMBER', 'CEZ_GITHUB_EVENT', 'CEZ_PR_HEAD_SHA', 'CEZ_PR_HEAD_REF', 'CEZ_PR_BASE_REF']) {
       expect(seen).not.toHaveProperty(name);
     }
   }, 40_000);
+
+  /**
+   * `CEZ_PROJECT_ID` is the one context name that is also a documented CLI *input*
+   * (BACKWARD_COMPATIBILITY.md §1 — it is how `cez task`/`cez automation` address a cockpit), so
+   * the strip must not reach it on a run that cannot replace it. The headless `cezar run` path
+   * builds its manager without a projectId; stripping there left `CEZ_API_URL` in place while
+   * `cez task create` silently fell back to the cockpit's boot project.
+   */
+  it('forwards an inherited CEZ_PROJECT_ID when the run has no project of its own', async () => {
+    process.env.CEZ_PROJECT_ID = 'operators-choice';
+    const projectless = new RunManager(store, repoRoot);
+    try {
+      const record = store.createRun({ title: 't', workflow: 'w', task: 'x', steps: [{ id: 'verify', name: 'Verify', kind: 'check' }] });
+      const env = await (projectless as unknown as {
+        checkStepEnv(runId: string, state: { cwd: string }, stepId: string): Promise<NodeJS.ProcessEnv>;
+      }).checkStepEnv(record.id, { cwd: repoRoot }, 'verify');
+      expect(env.CEZ_PROJECT_ID).toBe('operators-choice');
+      // No project means no per-project cache, and the run's own ids still replace the inherited
+      // ones — the forwarding is the single exception, not a hole in the strip.
+      expect(env).not.toHaveProperty('CEZ_SHARED_CACHE_DIR');
+      expect(env.CEZ_RUN_ID).toBe(record.id);
+    } finally {
+      projectless.dispose();
+    }
+  });
+
+  it('replaces an inherited CEZ_PROJECT_ID when the run does have a project', async () => {
+    process.env.CEZ_PROJECT_ID = 'operators-choice';
+    const record = store.createRun({ title: 't', workflow: 'w', task: 'x', steps: [{ id: 'verify', name: 'Verify', kind: 'check' }] });
+    expect((await contextOf(record.id, 'verify', repoRoot)).CEZ_PROJECT_ID).toBe(PROJECT);
+  });
+
+  /**
+   * The id becomes a path segment, so it is re-validated where that happens — the same guard
+   * `workspace/check-env.ts` applies before building `~/.cezar/check-env/<projectId>.env`. No
+   * caller can produce this id today (the workspace schema drops it, `allocateProjectSlug`
+   * cannot emit it); the point is that a `recursive` mkdir is not where we want to find out.
+   */
+  it('omits the cache directory rather than escaping the cezar home on a non-slug project id', async () => {
+    const record = store.createRun({ title: 't', workflow: 'w', task: 'x', steps: [{ id: 'verify', name: 'Verify', kind: 'check' }] });
+    const escaping = new RunManager(store, repoRoot, { projectId: '../../escape' });
+    try {
+      const env = await (escaping as unknown as {
+        checkStepEnv(runId: string, state: { cwd: string }, stepId: string): Promise<NodeJS.ProcessEnv>;
+      }).checkStepEnv(record.id, { cwd: repoRoot }, 'verify');
+      expect(env).not.toHaveProperty('CEZ_SHARED_CACHE_DIR');
+    } finally {
+      escaping.dispose();
+    }
+  });
 
   it('adds the GitHub provenance of an automation run', async () => {
     const record = store.createRun({ title: 't', workflow: 'w', task: 'x', steps: [{ id: 'verify', name: 'Verify', kind: 'check' }] });

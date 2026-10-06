@@ -263,9 +263,17 @@ for follow-ups.
   },
   ```
 
-  Parallel tasks on different branches can overwrite each other's recordings.
-  That costs a re-recording (model calls), never a wrong verdict: e2e verifies
-  the end state of every replay.
+  cezar hands every parallel task the same directory and takes no lock on it —
+  it does not own the writes, your e2e tool does. A recording one task
+  overwrites costs the next one a re-recording (model calls), never a wrong
+  verdict: e2e verifies the end state of every replay. Two tasks writing the
+  *same* entry at once is the case cezar cannot speak for — if your cache
+  writer is not atomic, a torn entry surfaces as an e2e error rather than a
+  re-record. Keep the cache per project (the default shape above) rather than
+  sharing one across projects, and nothing prunes the directory: it is yours to
+  reclaim with `rm -rf ~/.cezar/cache` (or one project's subdirectory), which
+  only costs the next run its warm cache. Unregistering a project does not
+  remove it.
 - **The check knows its run.** `CEZ_RUN_ID`, `CEZ_PROJECT_ID`, `CEZ_WORKTREE`,
   `CEZ_BRANCH`, `CEZ_BASE`, `CEZ_STEP_ID` and `CEZ_ATTEMPT`, plus
   `CEZ_GITHUB_REPO`/`CEZ_GITHUB_NUMBER`/`CEZ_GITHUB_EVENT` on a run a GitHub

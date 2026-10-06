@@ -105,6 +105,7 @@ import { resolveProfileEnvForRoot } from '../workspace/agent-profiles.ts';
 import { DEFAULT_AGENT_ACCOUNT_ID } from '../workspace/agent-accounts.ts';
 import { WorkspaceSemaphore, type AccountHolds } from '../workspace/semaphore.ts';
 import { CheckEnv } from '../workspace/check-env.ts';
+import { PROJECT_ID_RE } from '../workspace/config.ts';
 import { MIN_SECRET_LEN } from '../core/secret-redaction.ts';
 import { UiEventSink } from '../runs/ui-event-sink.ts';
 import type { UiEvent } from '../core/ui-events.ts';
@@ -5652,9 +5653,19 @@ export class RunManager {
     );
     // The run context wins last (Phase 2). Its names are first removed from what the server
     // inherited — a cezar started inside another cezar task carries that task's `CEZ_*` — so a
-    // variable this run does not set is absent, never a stale value from somewhere else.
+    // variable this run does not set is absent, never a stale value from somewhere else. The
+    // login shell `runCheckStep` spawns sources the user's profile after this, so the guarantee
+    // is about the server's environment, not about a profile that exports one of these names.
     const base: NodeJS.ProcessEnv = { ...process.env };
-    for (const name of CHECK_CONTEXT_VARS) delete base[name];
+    for (const name of CHECK_CONTEXT_VARS) {
+      // `CEZ_PROJECT_ID` is the one context name that is ALSO a documented CLI input
+      // (BACKWARD_COMPATIBILITY.md §1 — `cez task`/`cez automation` address a cockpit with it),
+      // so it is replaced, never stripped. A headless `cezar run` builds its manager without a
+      // projectId, and deleting the operator's value there would leave `CEZ_API_URL` in place
+      // while `cez task create` silently fell back to the cockpit's boot project.
+      if (name === 'CEZ_PROJECT_ID' && !this.projectId) continue;
+      delete base[name];
+    }
     return { ...base, ...checkEnv, ...(await this.checkContextEnv(runId, state, stepId)) };
   }
 
@@ -5781,11 +5792,19 @@ export function parseGithubItemUrl(url: string): { repo: string; number: number 
 /**
  * `~/.cezar/cache/<projectId>`, created `0700` on first use — the shared replay cache of a
  * project's check steps. `undefined` when the home cannot hold it: the check then runs with a
- * cold cache, exactly as before this variable existed.
+ * cold cache, exactly as before this variable existed. Nothing prunes it — `removeProject` is
+ * unregister-only — so `docs/e2e-verification.md` says how to reclaim the space.
+ *
+ * `projectId` is re-validated here even though every caller's id is already slug-shaped, for the
+ * same reason `workspace/check-env.ts` re-validates before building
+ * `~/.cezar/check-env/<projectId>.env`: this is where the value becomes a path, and a
+ * `recursive` mkdir is the wrong place to find out the guard moved upstream.
  */
 async function sharedCheckCacheDir(projectId: string): Promise<string | undefined> {
-  const dir = join(cezarHomeDir(), 'cache', projectId);
+  if (!PROJECT_ID_RE.test(projectId)) return undefined;
   try {
+    // Inside the `try` with the write: resolving the home is part of "the home cannot hold it".
+    const dir = join(cezarHomeDir(), 'cache', projectId);
     assertCezarHomeWriteIsSandboxed(dir);
     await mkdir(dir, { recursive: true, mode: 0o700 });
     return dir;

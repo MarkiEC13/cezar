@@ -283,6 +283,13 @@ and a value inherited from the server's own environment is replaced:
 | `CEZ_ATTEMPT` | 1-based attempt number of this check within the run |
 | `CEZ_SHARED_CACHE_DIR` | `~/.cezar/cache/<projectId>` (`0700`), shared by the project's tasks — e.g. an e2e replay cache |
 | `CEZ_GITHUB_REPO`, `CEZ_GITHUB_NUMBER`, `CEZ_GITHUB_EVENT` | runs a GitHub automation launched only |
+| `CEZ_PR_HEAD_SHA`, `CEZ_PR_HEAD_REF`, `CEZ_PR_BASE_REF` | reserved for pull-request-head runs; not set yet, and cleared from the inherited environment like the rest |
+
+`CEZ_PROJECT_ID` is the one name in that table cezar also reads as an *input*
+(it is how `cez task` and `cez automation` address a cockpit, see
+[backward compatibility](../BACKWARD_COMPATIBILITY.md) §1). A run that knows its
+own project replaces it; a headless `cezar run` that does not leaves whatever
+you exported alone, so a check step can still reach the cockpit you named.
 
 `onFail.retryOn` narrows the loop to the exit codes that mean *the work is
 wrong*. Omitted, any non-zero code loops back — right for `npm test`, which
