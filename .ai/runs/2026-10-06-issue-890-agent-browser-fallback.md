@@ -12,14 +12,14 @@ invocation to the generated QA environment.
 
 - `.ai/browsers/agent-browser.md` — the `ensure-installed` POSIX operation and its
   provider-facing output.
-- New provider-specific validation fixtures/docs only, if needed to exercise the
-  failure path, staged-library fallback, and environment propagation without
-  changing application code or generated runtime scripts.
+- `.ai/scripts/test-env-up.sh` and `.ai/scripts/e2e.sh` — the generated provider
+  bootstrap and its environment propagation into real browser processes.
+- New provider-specific validation fixtures/docs to exercise the failure path,
+  staged-library fallback, and environment propagation.
 - This run plan.
 
-Non-goals: changing application code, changing the test-environment generator,
-adding mandatory configuration, downloading packages as a new provisioning
-mechanism, or modifying unrelated descriptors/plans.
+Non-goals: changing application code, adding mandatory configuration, downloading
+packages as a new provisioning mechanism, or modifying unrelated descriptors/plans.
 
 ## Implementation Plan
 
@@ -36,6 +36,8 @@ mechanism, or modifying unrelated descriptors/plans.
   exported environment values; prove the old descriptor fails where practical. — a78cb6ba
 - [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect
   the complete diff for scope creep. — a8a657b3
+- [x] 2.4 Wire the generated QA bootstrap to persist and export the effective browser
+  environment. — e1c11878
 
 ### Phase 3: completion
 
@@ -65,6 +67,7 @@ mechanism, or modifying unrelated descriptors/plans.
 - [x] 2.1 Implement the minimal staged-library fallback and justified rootless sandbox/environment propagation in the descriptor. — a78cb6ba
 - [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical. — a78cb6ba
 - [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect the complete diff for scope creep. — a8a657b3
+- [x] 2.4 Wire the generated QA bootstrap to persist and export the effective browser environment. — e1c11878
 
 ### Phase 3: completion
 
