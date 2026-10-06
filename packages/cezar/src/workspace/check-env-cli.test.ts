@@ -37,10 +37,14 @@ describe('cezar check-env (spec 2026-10-06-agentic-e2e-checks Phase 1)', () => {
     expect([...lines, ...errors].join('\n')).not.toContain('cli-secret-value');
   });
 
-  it('never takes a value from argv', async () => {
+  it('never takes a value from argv, and refuses any other operand shape', async () => {
     await registerProject(root);
     expect(await cli(['set', 'E2E_KEY', 'inline-value'])).toBe(1);
     expect(errors.join('\n')).toContain('Usage');
+    for (const args of [[], ['list', 'EXTRA'], ['set'], ['unset'], ['nonsense']]) {
+      expect(await cli(args)).toBe(1);
+      expect(errors.at(-1)).toContain('Usage');
+    }
   });
 
   it('refuses a reserved name and an unregistered folder, and reports a missing name', async () => {

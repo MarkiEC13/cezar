@@ -26,7 +26,9 @@ export function CheckEnvSection() {
       await refresh(projectId)
       toast(`${saved} saved`)
     },
-    onError: (e: Error) => { setValue(''); setError(e.message) },
+    // Keep the value on failure: it is already in component state either way, and clearing it
+    // makes a transient 409 cost the user a re-paste of a 100-character key.
+    onError: (e: Error) => setError(e.message),
   })
   const remove = useMutation({
     mutationFn: async (target: string) => { const projectId = queryScope(); await removeCheckEnv(target); return { projectId, removed: target } },

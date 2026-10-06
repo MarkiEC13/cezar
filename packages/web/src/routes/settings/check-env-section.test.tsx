@@ -54,13 +54,16 @@ describe('Check credentials settings', () => {
     expect(calls.some((c) => c.method === 'PUT')).toBe(false)
   })
 
-  it('shows the server error when saving fails', async () => {
+  it('shows the server error when saving fails, and keeps what was typed', async () => {
     setup(['A'], 409)
     await screen.findByText('A')
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'OK_NAME' } })
-    fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'x' } })
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'a-long-pasted-key' } })
     fireEvent.click(screen.getByRole('button', { name: /save credential/i }))
     expect(await screen.findByText('storage failed')).toBeTruthy()
+    // Retrying a transient failure must not cost a re-paste of the key.
+    expect((screen.getByLabelText('Value') as HTMLInputElement).value).toBe('a-long-pasted-key')
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('OK_NAME')
   })
 
   it('deletes a credential with DELETE', async () => {

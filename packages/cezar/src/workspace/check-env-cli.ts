@@ -37,18 +37,15 @@ export async function runCheckEnvCommand(
     repo = value;
     rest.splice(repoAt, 2);
   }
-  const [command, name, ...extra] = rest;
-  const valid =
-    (command === 'list' && name === undefined) ||
-    ((command === 'set' || command === 'unset') && name !== undefined && extra.length === 0);
-  if (!valid) {
+  const action = parseAction(rest);
+  if (!action) {
     io.error(USAGE);
     return 1;
   }
-  if (name !== undefined) {
-    const issue = checkEnvNameIssue(name);
+  if (action.kind !== 'list') {
+    const issue = checkEnvNameIssue(action.name);
     if (issue) {
-      io.error(`cezar check-env: ${name} — ${issue}`);
+      io.error(`cezar check-env: ${action.name} — ${issue}`);
       return 1;
     }
   }
@@ -60,25 +57,25 @@ export async function runCheckEnvCommand(
   }
   const store = new CheckEnv(env);
   try {
-    if (command === 'list') {
+    if (action.kind === 'list') {
       for (const stored of await store.names(project.id, project.root)) io.log(stored);
       return 0;
     }
-    if (command === 'set') {
+    if (action.kind === 'set') {
       const value = await (io.readValue ?? readValueFromStdin)();
       if (value === '') {
         io.error('cezar check-env: empty value — nothing saved');
         return 1;
       }
-      await store.set(project.id, project.root, name!, value);
-      io.log(name!);
+      await store.set(project.id, project.root, action.name, value);
+      io.log(action.name);
       return 0;
     }
-    if (!(await store.unset(project.id, project.root, name!))) {
-      io.error(`cezar check-env: no check credential named ${name}`);
+    if (!(await store.unset(project.id, project.root, action.name))) {
+      io.error(`cezar check-env: no check credential named ${action.name}`);
       return 1;
     }
-    io.log(name!);
+    io.log(action.name);
     return 0;
   } catch (error) {
     io.error(
@@ -88,6 +85,20 @@ export async function runCheckEnvCommand(
     );
     return 1;
   }
+}
+
+/** `list` takes no operand; `set` and `unset` take exactly a name. Parsing it into this shape
+ *  once is what lets the body below use `action.name` as a string without an assertion. */
+type CheckEnvAction = { kind: 'list' } | { kind: 'set' | 'unset'; name: string };
+
+function parseAction(rest: string[]): CheckEnvAction | undefined {
+  const [command, ...operands] = rest;
+  if (command === 'list' && operands.length === 0) return { kind: 'list' };
+  const [name] = operands;
+  if ((command === 'set' || command === 'unset') && name !== undefined && operands.length === 1) {
+    return { kind: command, name };
+  }
+  return undefined;
 }
 
 async function registeredProject(repo: string): Promise<{ id: string; root: string } | undefined> {

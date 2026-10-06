@@ -5642,13 +5642,25 @@ export class RunManager {
    * secrets BEFORE the spawn, so the first byte of output is already scrubbed; values shorter
    * than the host-secret floor are not, or a flag like `=1` would redact every `1` in the log.
    */
-  private async checkStepEnv(runId: string): Promise<NodeJS.ProcessEnv> {
-    const checkEnv = this.projectId ? await this.checkEnv.values(this.projectId, this.repoRoot) : {};
+  private async checkStepEnv(
+    runId: string,
+    step: WorkflowStepDef,
+    emit: (event: { type: string; stepId?: string; [k: string]: unknown }) => void,
+  ): Promise<NodeJS.ProcessEnv> {
+    const read = this.projectId
+      ? await this.checkEnv.read(this.projectId, this.repoRoot)
+      : { values: {} as Record<string, string> };
+    // A store that exists and was not used is the one case the user cannot diagnose on their
+    // own: the value is write-only, so `check-env list` and Settings show the same empty list
+    // whether nothing was stored or this run ignored it. Say which, once, on the step.
+    if (read.skipped) {
+      emit({ type: 'note', stepId: step.id, message: `check credentials skipped — ${read.skipped}` });
+    }
     this.store.registerRunSecrets(
       runId,
-      Object.values(checkEnv).filter((value) => value.length >= MIN_SECRET_LEN),
+      Object.values(read.values).filter((value) => value.length >= MIN_SECRET_LEN),
     );
-    return { ...process.env, ...checkEnv };
+    return { ...process.env, ...read.values };
   }
 
   private async runCheckStep(
@@ -5659,7 +5671,7 @@ export class RunManager {
   ): Promise<{ ok: boolean; output: string; exitCode: number }> {
     const command = step.command as string;
     emit({ type: 'note', stepId: step.id, message: `$ ${command}` });
-    const env = await this.checkStepEnv(runId);
+    const env = await this.checkStepEnv(runId, step, emit);
     // A cancel that landed during the read had no child to interrupt; do not spawn one now.
     if (state.cancelled) return { ok: false, output: 'cancelled', exitCode: -1 };
     return new Promise((resolve) => {

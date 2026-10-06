@@ -56,9 +56,34 @@ describe('CheckEnv store (spec 2026-10-06-agentic-e2e-checks Phase 1)', () => {
     await expect(store.set('demo', root, name, 'x')).rejects.toBeInstanceOf(CheckEnvError);
   });
 
-  it('refuses multi-line and oversized values', async () => {
+  it('refuses empty, multi-line and oversized values', async () => {
     await expect(store.set('demo', root, 'KEY', 'a\nB=b')).rejects.toBeInstanceOf(CheckEnvError);
     await expect(store.set('demo', root, 'KEY', 'x'.repeat(16 * 1024 + 1))).rejects.toBeInstanceOf(CheckEnvError);
+    // An empty value would SHADOW the server's own variable of that name with '' rather than
+    // read as unset, so the store refuses it exactly as the CLI and the cockpit do.
+    await expect(store.set('demo', root, 'KEY', '')).rejects.toThrow(/not empty/);
+    expect(await store.names('demo', root)).toEqual([]);
+  });
+
+  it('reports a store it found but could not use, and stays quiet when there is none', async () => {
+    // Nothing stored: the ordinary case says nothing.
+    expect(await store.read('demo', root)).toEqual({ values: {} });
+    await store.set('demo', root, 'KEY', 'v');
+    expect(await store.read('demo', root)).toEqual({ values: { KEY: 'v' } });
+
+    const other = await mkdtemp(join(tmpdir(), 'cez-check-env-other-'));
+    try {
+      const mismatch = await store.read('demo', other);
+      expect(mismatch.values).toEqual({});
+      expect(mismatch.skipped).toMatch(/belongs to another project root/);
+    } finally {
+      await rm(other, { recursive: true, force: true });
+    }
+
+    await writeFile(join(home, 'check-env', 'demo.env'), 'x'.repeat(300 * 1024), { mode: 0o600 });
+    const corrupt = await store.read('demo', root);
+    expect(corrupt.values).toEqual({});
+    expect(corrupt.skipped).toMatch(/unreadable/);
   });
 
   it('round-trips values with quotes, = and spaces exactly', async () => {

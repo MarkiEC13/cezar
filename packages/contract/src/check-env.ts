@@ -45,10 +45,27 @@ export function utf8ByteLength(value: string): number {
   return bytes;
 }
 
+/**
+ * Why `value` cannot be a check credential, or `null` when it can — the value twin of
+ * `checkEnvNameIssue`, so the route, the store and the CLI cannot drift. They did: the schema
+ * accepted `""` that the CLI and the cockpit both refuse, and an empty value does not read as
+ * "unset" — it SHADOWS the server's own variable of that name with the empty string, because a
+ * check step runs with `{ ...process.env, ...checkEnv }`.
+ */
+export function checkEnvValueIssue(value: string): string | null {
+  if (value === '') return 'a value is not empty; remove the name instead of storing nothing';
+  if (utf8ByteLength(value) > CHECK_ENV_VALUE_MAX_BYTES) {
+    return `a value is at most ${CHECK_ENV_VALUE_MAX_BYTES} bytes`;
+  }
+  if (/[\r\n\0]/.test(value)) return 'a value is one line, without NUL';
+  return null;
+}
+
 export const checkEnvValueInputSchema = z.object({
-  value: z.string().refine((value) => utf8ByteLength(value) <= CHECK_ENV_VALUE_MAX_BYTES, {
-    message: `a value is at most ${CHECK_ENV_VALUE_MAX_BYTES} bytes`,
-  }).refine((value) => !/[\r\n\0]/.test(value), { message: 'a value is one line, without NUL' }),
+  value: z.string().superRefine((value, ctx) => {
+    const issue = checkEnvValueIssue(value);
+    if (issue) ctx.addIssue({ code: 'custom', message: issue });
+  }),
 });
 export type CheckEnvValueInput = z.infer<typeof checkEnvValueInputSchema>;
 

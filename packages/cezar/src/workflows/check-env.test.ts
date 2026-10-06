@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,6 @@ import type { WorkflowDef } from './types.ts';
 
 const run = promisify(execFile);
 const GIT_ID = ['-c', 'user.name=test', '-c', 'user.email=test@local'];
-const PROJECT = 'check-env-project';
 
 /**
  * Project check credentials reach CHECK steps only (spec 2026-10-06-agentic-e2e-checks Phase 1).
@@ -29,10 +29,14 @@ describe('project check credentials in check steps', () => {
   let manager: RunManager;
   let checkEnv: CheckEnv;
   let stdinLog: string;
+  /** Per test, so each case starts with no store of its own — `CEZ_HOME` is one sandbox for the
+   *  whole vitest worker, and a shared id would let one case read the previous one's file. */
+  let project: string;
   const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(async () => {
     repoRoot = mkdtempSync(join(tmpdir(), 'cez-check-env-'));
+    project = `check-env-${randomUUID()}`;
     for (const key of ['CEZ_DRY_RUN', 'CEZ_MOCK_STDIN_FILE']) savedEnv[key] = process.env[key];
     process.env.CEZ_DRY_RUN = '1';
     stdinLog = join(repoRoot, '.mock-stdin.ndjson');
@@ -43,7 +47,7 @@ describe('project check credentials in check steps', () => {
     await run('git', [...GIT_ID, 'commit', '-q', '-m', 'base'], { cwd: repoRoot });
     store = RunStore.open(join(repoRoot, '.ai/cezar'));
     checkEnv = new CheckEnv();
-    manager = new RunManager(store, repoRoot, { projectId: PROJECT, checkEnv });
+    manager = new RunManager(store, repoRoot, { projectId: project, checkEnv });
   });
 
   afterEach(() => {
@@ -73,6 +77,14 @@ describe('project check credentials in check steps', () => {
       .filter((event) => event.type === 'check-output')
       .map((event) => event.text ?? '');
 
+  const notes = (id: string): string[] =>
+    readFileSync(join(repoRoot, '.ai/cezar/runs', `${id}.ndjson`), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { type: string; message?: string })
+      .filter((event) => event.type === 'note')
+      .map((event) => event.message ?? '');
+
   const checkOnly = (command: string): WorkflowDef => ({
     name: 'implement-and-check',
     source: 'file',
@@ -83,7 +95,7 @@ describe('project check credentials in check steps', () => {
   });
 
   it('hands a stored value to the check step', async () => {
-    await checkEnv.set(PROJECT, repoRoot, 'E2E_FLAG', 'on');
+    await checkEnv.set(project, repoRoot, 'E2E_FLAG', 'on');
     const record = manager.startRun(checkOnly('echo "flag=$E2E_FLAG"'), { task: 'mock:done go', worktree: false });
     await settle(record.id);
 
@@ -93,8 +105,8 @@ describe('project check credentials in check steps', () => {
 
   it('never puts a check credential where an agent env can see it', async () => {
     const key = 'sk-ant-api03-checkonlycheckonlycheckonly';
-    await checkEnv.set(PROJECT, repoRoot, 'ANTHROPIC_API_KEY', key);
-    await checkEnv.set(PROJECT, repoRoot, 'FOO', 'check-only-value');
+    await checkEnv.set(project, repoRoot, 'ANTHROPIC_API_KEY', key);
+    await checkEnv.set(project, repoRoot, 'FOO', 'check-only-value');
     const record = manager.startRun(checkOnly('test "$FOO" = check-only-value'), {
       task: 'mock:done go',
       worktree: false,
@@ -117,7 +129,7 @@ describe('project check credentials in check steps', () => {
   it('scrubs a failing check\'s output before it becomes the next agent prompt', async () => {
     const credential = 'e2e-credential-value-0123456789';
     const token = 'sk-ant-api03-leakedleakedleakedleaked';
-    await checkEnv.set(PROJECT, repoRoot, 'E2E_GATEWAY_KEY', credential);
+    await checkEnv.set(project, repoRoot, 'E2E_GATEWAY_KEY', credential);
     const workflow: WorkflowDef = {
       name: 'implement-and-check',
       source: 'file',
@@ -155,8 +167,28 @@ describe('project check credentials in check steps', () => {
       await settle(record.id);
       expect(store.getRun(record.id)?.status).toBe('done');
       expect(checkOutputs(record.id)).toEqual(['server-value']);
+      // Nothing stored is the ordinary case: it degrades silently, with no note to explain.
+      expect(notes(record.id).filter((note) => note.includes('check credentials'))).toEqual([]);
     } finally {
       delete process.env.CEZ_CHECK_ENV_GUARD_PROBE;
+    }
+  }, 30_000);
+
+  it('says so on the step when it found a store it could not use', async () => {
+    // A store written for a DIFFERENT project root — a moved checkout, a changed symlink. It
+    // reads as empty by design, and the value is write-only, so without this note the user sees
+    // an empty `check-env list` and cannot tell "never stored" from "stored but ignored".
+    const elsewhere = mkdtempSync(join(tmpdir(), 'cez-check-env-elsewhere-'));
+    try {
+      await checkEnv.set(project, elsewhere, 'E2E_FLAG', 'on');
+      const record = manager.startRun(checkOnly('echo "flag=$E2E_FLAG"'), { task: 'mock:done go', worktree: false });
+      await settle(record.id);
+
+      expect(store.getRun(record.id)?.status).toBe('done');
+      expect(checkOutputs(record.id)).toEqual(['flag=']);
+      expect(notes(record.id).some((note) => /check credentials skipped — the store belongs to another project root/.test(note))).toBe(true);
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
     }
   }, 30_000);
 });

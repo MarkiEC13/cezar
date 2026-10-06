@@ -68,6 +68,11 @@ describe('check-env API (spec 2026-10-06-agentic-e2e-checks Phase 1)', () => {
       expect(((await response.json()) as { error: string }).error).toContain(reason);
     }
     expect((await apiRequest(instance, '/api/v1/check-env/KEY', put('a\nB=b'))).status).toBe(400);
+    // An empty value is refused here too: the CLI and the cockpit both refuse it, and storing
+    // `NAME=""` would shadow the server's own variable of that name instead of reading as unset.
+    const empty = await apiRequest(instance, '/api/v1/check-env/KEY', put(''));
+    expect(empty.status).toBe(400);
+    expect(((await empty.json()) as { error: string }).error).toContain('not empty');
     expect((await apiRequest(instance, '/api/v1/check-env/KEY', put('x'.repeat(16 * 1024 + 1)))).status).toBe(400);
     expect((await apiRequest(instance, '/api/v1/check-env/KEY', put(42))).status).toBe(400);
     expect(await (await apiRequest(instance, '/api/v1/check-env')).json()).toEqual({ names: [] });

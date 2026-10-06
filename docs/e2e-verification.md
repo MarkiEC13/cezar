@@ -232,9 +232,17 @@ for follow-ups.
   (or Settings → *Check credentials* in the cockpit). `set` reads the value
   from stdin — run it bare to type it at a hidden prompt — so it never lands
   in shell history or `ps`. The values are handed to this project's **check
-  steps only**, are redacted from check output and from the failing output fed
-  back to the agent, and live in `~/.cezar/check-env/<project>.env` (`0600`,
-  outside the repo).
+  steps only** and live in `~/.cezar/check-env/<project>.env` (`0600`, outside
+  the repo).
+
+  A stored value of **12 characters or more** is also redacted from the check's
+  output and from the failing output fed back to the agent — the same floor
+  `MIN_SECRET_LEN` applies to the host's own secret-named variables, because
+  below it a "secret" is too common a word to replace safely (`POSTGRES_PASSWORD=postgres`
+  once turned `apt install postgresql-16` into `apt install [REDACTED]ql-16`).
+  A shorter value is stored and injected like any other, but it is **not**
+  scrubbed from the run transcript or the retry prompt, so keep anything that
+  must not be logged above the floor — every real API key already is.
 
   **Why not just `export ANTHROPIC_API_KEY` before starting cezar?** Because
   cezar passes provider-prefixed variables (`ANTHROPIC_*`, `OPENAI_*`, …) to

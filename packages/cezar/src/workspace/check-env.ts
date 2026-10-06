@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs, constants } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { checkEnvNameIssue, CHECK_ENV_VALUE_MAX_BYTES } from '@open-mercato/cezar-contract';
+import { checkEnvNameIssue, checkEnvValueIssue } from '@open-mercato/cezar-contract';
 import { assertCezarHomeWriteIsSandboxed, cezarHomeDir } from '../paths.ts';
 import { PROJECT_ID_RE } from './config.ts';
 
@@ -28,6 +28,19 @@ const ROOT_LINE = '# root: ';
 
 export class CheckEnvError extends Error {}
 
+/**
+ * A read of one project's store. `skipped` is set only when a store the user DID write could
+ * not be used — bad modes, a symlink, a corrupt file, or a recorded root that is not this
+ * project's. Reading as `{}` is the right degradation (a corrupt store must never stop runs),
+ * but doing it silently left the user no way to tell "I never stored it" from "cezar ignored
+ * what I stored": the credential is write-only, so there is nothing to inspect and compare.
+ * The caller turns this into one note on the run.
+ */
+export interface CheckEnvRead {
+  values: Record<string, string>;
+  skipped?: string;
+}
+
 export class CheckEnv {
   private readonly directory: string;
 
@@ -46,23 +59,34 @@ export class CheckEnv {
    * check without its credential fails on its own terms, and a corrupt store must not stop runs.
    */
   async values(projectId: string, root: string): Promise<Record<string, string>> {
-    if (!PROJECT_ID_RE.test(projectId)) return {};
+    return (await this.read(projectId, root)).values;
+  }
+
+  /** `values()` plus the reason a present-but-unusable store was skipped. See `CheckEnvRead`. */
+  async read(projectId: string, root: string): Promise<CheckEnvRead> {
+    if (!PROJECT_ID_RE.test(projectId)) return { values: {} };
+    let text: string;
     try {
       await this.checkDirectory();
-      const parsed = parseCheckEnv(await this.readFile(this.file(projectId)));
-      return parsed.root === (await canonicalRoot(root)) ? parsed.values : {};
-    } catch {
-      return {};
+      text = await this.readFile(this.file(projectId));
+    } catch (error) {
+      // No directory and no file are the ordinary "nothing stored" cases and say nothing. Every
+      // other failure — a loosened mode, a symlink (`ELOOP` from `O_NOFOLLOW`), an oversized
+      // file — is a store that exists and was not used.
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { values: {} };
+      return { values: {}, skipped: 'the store is unreadable — check the modes on ~/.cezar/check-env (0700 dir, 0600 file)' };
     }
+    const parsed = parseCheckEnv(text);
+    const owner = await canonicalRoot(root);
+    if (parsed.root !== owner) {
+      return { values: {}, skipped: `the store belongs to another project root (${parsed.root ?? 'none recorded'}), not ${owner}` };
+    }
+    return { values: parsed.values };
   }
 
   async set(projectId: string, root: string, name: string, value: string): Promise<void> {
-    const issue = checkEnvNameIssue(name);
+    const issue = checkEnvNameIssue(name) ?? checkEnvValueIssue(value);
     if (issue) throw new CheckEnvError(issue);
-    if (Buffer.byteLength(value, 'utf8') > CHECK_ENV_VALUE_MAX_BYTES) {
-      throw new CheckEnvError(`a value is at most ${CHECK_ENV_VALUE_MAX_BYTES} bytes`);
-    }
-    if (/[\r\n\0]/.test(value)) throw new CheckEnvError('a value is one line, without NUL');
     await this.update(projectId, root, (values) => {
       values[name] = value;
       return true;
