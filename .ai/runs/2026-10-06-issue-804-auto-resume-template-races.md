@@ -24,8 +24,8 @@ increases, and changes to queue semantics or template composition.
 
 ### Phase 3: validate and review
 
-- [ ] 3.1 Run scoped tests, the configured validation gate, and review the final diff.
-- [ ] 3.2 Open and review the PR, then report exact evidence to the parent task.
+- [x] 3.1 Run scoped tests, the configured validation gate, and review the final diff. — auto-resume 21/21; full-gate limitations recorded
+- [x] 3.2 Open and review the PR, then report exact evidence to the parent task. — independent teardown remediation; test-only ready/skip-qa
 
 ## Risks
 
@@ -49,4 +49,4 @@ increases, and changes to queue semantics or template composition.
 ### Phase 3: validate and review
 
 - [x] 3.1 Run scoped tests, the configured validation gate, and review the final diff. — scoped green; full gate has unrelated baseline failures
-- [x] 3.2 Open and review the PR, then report exact evidence to the parent task. — draft PR #1297; review blockers are gate baseline failures
+- [x] 3.2 Open and review the PR, then report exact evidence to the parent task. — ready PR #1297; skip-qa; exact-head CI pending
