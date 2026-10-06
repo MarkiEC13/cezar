@@ -43,9 +43,9 @@ packages as a new provisioning mechanism, or modifying unrelated descriptors/pla
 ### Phase 3: completion
 
 - [x] 3.1 Run the configured validation gate and any available real-browser smoke.
-  — gate attempted; blocked by unrelated baseline failures; real binary unavailable
-- [ ] 3.2 Run the authoritative PR review/autofix workflow, update the PR evidence,
-  and finalize the PR without merging main.
+  — gate attempted; blocked by unrelated baseline failures; staged-library launch attempted but Chrome failed on task TMP SingletonSocket path
+- [x] 3.2 Run the authoritative PR review/autofix workflow, update the PR evidence,
+  and finalize the PR without merging main. — independent review complete; browser/CI remain explicit blockers
 
 ## Risks
 
