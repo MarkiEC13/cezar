@@ -87,7 +87,9 @@ if ! "$AGENT_BROWSER_BIN" doctor --json >/dev/null 2>&1 && [ "$(uname -s 2>/dev/
   done
   if [ -n "$STAGED_LIBRARY_PATH" ]; then
     export LD_LIBRARY_PATH="$STAGED_LIBRARY_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    if [ -f /.dockerenv ] || [ -f /run/.containerenv ] || grep -Eqi '(docker|containerd|kubepods|libpod|lxc)' /proc/1/cgroup 2>/dev/null; then
+    ROOTLESS_NO_USERNS=0
+    if command -v unshare >/dev/null 2>&1 && ! unshare -Ur true 2>/dev/null; then ROOTLESS_NO_USERNS=1; fi
+    if [ "$ROOTLESS_NO_USERNS" = 1 ] || [ -f /.dockerenv ] || [ -f /run/.containerenv ] || grep -Eqi '(docker|containerd|kubepods|libpod|lxc)' /proc/1/cgroup 2>/dev/null; then
       case ",${AGENT_BROWSER_ARGS:-}," in
         *,--no-sandbox,*) ;;
         *) AGENT_BROWSER_ARGS="${AGENT_BROWSER_ARGS:+$AGENT_BROWSER_ARGS,}--no-sandbox,--disable-dev-shm-usage,--disable-gpu"; export AGENT_BROWSER_ARGS ;;
