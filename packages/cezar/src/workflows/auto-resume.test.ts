@@ -3,7 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ClaudeCliRunner } from '../core/claude-cli-runner.ts';
+import * as runnerFactory from '../core/runner-factory.ts';
 import { RunStore } from '../runs/store.ts';
 import { WorkspaceSemaphore } from '../workspace/semaphore.ts';
 import {
@@ -69,12 +71,13 @@ describe('a run stopped by a usage limit resumes itself', () => {
   afterEach(() => {
     manager?.dispose();
     manager = undefined;
+    vi.restoreAllMocks();
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
     store.flush();
-    rmSync(repoRoot, { recursive: true, force: true });
+    rmSync(repoRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
 
   it('schedules the resume for the provider\'s reset instant plus the grace', async () => {
@@ -96,6 +99,150 @@ describe('a run stopped by a usage limit resumes itself', () => {
     const events = store.readEvents(record.id);
     expect(events.some((event) => String(event.message ?? '').includes('resuming automatically at'))).toBe(true);
   }, 30_000);
+
+  it.each([
+    { restart: false, worktree: false },
+    { restart: true, worktree: false },
+    { restart: false, worktree: true },
+    { restart: true, worktree: true },
+    { restart: 'queued', worktree: false },
+    { restart: 'queued', worktree: true },
+    { restart: 'queued-without-counter', worktree: false },
+  ])('continues the workflow after a limit (restart=$restart, worktree=$worktree)', async ({ restart, worktree }) => {
+    // Exercise the mixed-backend routing without launching a real Codex CLI.
+    const createRunner = runnerFactory.createRunner;
+    vi.spyOn(runnerFactory, 'createRunner').mockImplementation((backend) =>
+      backend === 'codex' ? new ClaudeCliRunner() : createRunner(backend),
+    );
+    const sessions = vi.spyOn(ClaudeCliRunner.prototype, 'startSession');
+    const chain: WorkflowDef = {
+      name: 'plan-and-review',
+      source: 'built-in',
+      steps: [
+        { id: 'prepare', prompt: 'mock:done prepare the task' },
+        { id: 'plan', prompt: '{{task}}', runner: 'claude', allowedTools: ['Read'], bashAllowlist: ['git status'] },
+        { id: 'review-plan', prompt: 'mock:done challenge the plan', runner: 'codex' },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(chain, { task: 'mock:limit create a plan', worktree });
+    await settle(record.id);
+    const failed = store.getRun(record.id);
+    expect(failed?.error).toContain('Claude AI usage limit reached|');
+    expect(failed?.autoResumeAt).toBeDefined();
+    expect(failed?.steps.map((step) => step.status)).toEqual(['done', 'failed', 'pending']);
+    const planSession = failed?.steps.find((step) => step.id === 'plan')?.sessionId;
+    const originalWorktree = failed?.worktreePath;
+    const originalStartedAt = failed?.startedAt;
+
+    if (restart === true) {
+      manager.dispose();
+      store.flush();
+      store = RunStore.open(join(repoRoot, '.ai/cezar'), { keepLive: true });
+      manager = new RunManager(store, repoRoot);
+    }
+    // The mock matches the task text on every turn. Change the reply after the interruption,
+    // then drive the real timer through reconciliation without waiting out a provider window.
+    store.updateRun(record.id, {
+      task: 'mock:done create a plan',
+      autoResumeAt: new Date(Date.now() - 1_000).toISOString(),
+    });
+    if (restart === true) {
+      await manager.recover();
+    } else {
+      // Deliver the existing timer's callback directly, without waiting out the hour-long mock
+      // window. Clear its real handle first so teardown leaves no orphan timer behind.
+      const scheduler = manager as unknown as {
+        autoResumeTimers: Map<string, ReturnType<typeof setTimeout>>;
+        fireAutoResume(runId: string): void;
+        pump(): Promise<void>;
+      };
+      // Hold the resumed job in the capacity queue, then restart before it can spawn.
+      const pump = typeof restart === 'string' ? vi.spyOn(scheduler, 'pump').mockResolvedValue() : undefined;
+      clearTimeout(scheduler.autoResumeTimers.get(record.id));
+      scheduler.fireAutoResume(record.id);
+      if (pump) {
+        expect(store.getRun(record.id)?.status).toBe('queued');
+        if (restart === 'queued-without-counter') {
+          // Optional/retired accounting state must not turn a recoverable workflow into a
+          // fresh run. Its failed step + session still identify exactly where to resume.
+          store.updateRun(record.id, { autoResumeAttempts: undefined });
+        }
+        manager.dispose();
+        pump.mockRestore();
+        store.flush();
+        store = RunStore.open(join(repoRoot, '.ai/cezar'), { keepLive: true });
+        manager = new RunManager(store, repoRoot);
+        await manager.recover();
+      }
+    }
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toBe('done');
+    const resumed = store.getRun(record.id);
+    expect(resumed?.steps.map((step) => [step.id, step.status])).toEqual([
+      ['prepare', 'done'], ['plan', 'done'], ['review-plan', 'done'],
+    ]);
+    expect(resumed?.steps.find((step) => step.id === 'prepare')?.iterations).toBe(1);
+    expect(resumed?.steps.find((step) => step.id === 'plan')?.sessionId).toBe(planSession);
+    expect(resumed?.steps.find((step) => step.id === 'review-plan')?.backend).toBe('codex');
+    expect(resumed?.workflowDef).toEqual(chain);
+    expect(resumed?.worktreePath).toBe(originalWorktree);
+    expect(resumed?.startedAt).toBe(originalStartedAt);
+    expect(resumed?.autoResumeAt).toBeUndefined();
+    expect(resumed?.autoResumeAttempts).toBeUndefined();
+    const resumeSpec = sessions.mock.calls.find(([spec]) => spec.resume)?.[0];
+    expect(resumeSpec).toMatchObject({
+      sessionId: planSession, resume: true, allowedTools: ['Read'], bashAllowlist: ['git status'],
+    });
+  }, 40_000);
+
+  it('keeps session-only recovery for legacy records without a workflow definition', async () => {
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(workflow, { task: 'mock:limit legacy task', worktree: false });
+    await settle(record.id);
+    manager.dispose();
+    store.updateRun(record.id, {
+      workflowDef: undefined,
+      task: 'mock:done legacy task',
+      autoResumeAt: new Date(Date.now() - 1_000).toISOString(),
+    });
+    manager = new RunManager(store, repoRoot);
+    await manager.recover();
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toBe('done');
+    expect(store.getRun(record.id)?.steps.find((step) => step.id === 'continue-1')?.status).toBe('done');
+  }, 40_000);
+
+  it('keeps the check retry budget when the retried agent hits a limit', async () => {
+    const startSession = ClaudeCliRunner.prototype.startSession;
+    let invocations = 0;
+    vi.spyOn(ClaudeCliRunner.prototype, 'startSession').mockImplementation(function (this: ClaudeCliRunner, spec, onEvent, opts) {
+      invocations++;
+      // First attempt reaches the failing check; the check's one retry hits the usage limit.
+      return startSession.call(this, invocations === 3 ? { ...spec, userPrompt: 'mock:limit retry the plan' } : spec, onEvent, opts);
+    });
+    const chain: WorkflowDef = {
+      name: 'bounded-retry', source: 'built-in', steps: [
+        { id: 'plan', prompt: '{{task}}' },
+        { id: 'review', prompt: 'mock:done review the plan' },
+        { id: 'check', command: 'node -e "process.exit(1)"', onFail: { retry: 'plan', max: 1 } },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(chain, { task: 'mock:done create a plan', worktree: false });
+    await settle(record.id);
+    expect(store.getRun(record.id)?.autoResumeAt).toBeDefined();
+    expect(store.getRun(record.id)?.steps.map((step) => step.status)).toEqual(['failed', 'pending', 'pending']);
+    manager.dispose();
+    store.updateRun(record.id, { autoResumeAt: new Date(Date.now() - 1_000).toISOString() });
+    manager = new RunManager(store, repoRoot);
+    await manager.recover();
+    await expect.poll(() => store.getRun(record.id)?.autoResumeAt, { timeout: 20_000 }).toBeUndefined();
+    await expect.poll(() => store.getRun(record.id)?.error, { timeout: 20_000 }).toContain('check "check" failed after 2 attempts');
+    expect(invocations).toBe(5);
+    const planSessions = vi.mocked(ClaudeCliRunner.prototype.startSession).mock.calls;
+    expect(planSessions[3]?.[0].resume).toBe(true);
+    // The pending review retained its first session id; rerunning it still starts a fresh one.
+    expect(planSessions[4]?.[0].resume).toBeUndefined();
+  }, 40_000);
 
   it('leaves the run plainly failed when the setting is off', async () => {
     manager = new RunManager(store, repoRoot, {
@@ -149,7 +296,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
 
     await expect
       .poll(
-        () => store.getRun(record.id)?.steps.find((step) => step.id === 'continue-1')?.status,
+        () => store.getRun(record.id)?.steps.find((step) => step.id === 'work')?.status,
         { timeout: 20_000 },
       )
       .toBe('done');
@@ -297,7 +444,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     await expect
       .poll(
         () =>
-          runs.filter((r) => store.getRun(r.id)?.steps.some((s) => s.id === 'continue-1' && s.status === 'done'))
+          runs.filter((r) => store.getRun(r.id)?.steps.some((s) => s.id === 'work' && s.status === 'done'))
             .length,
         { timeout: 25_000 },
       )
@@ -447,7 +594,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     // Exactly one probe spawns and meets the limit; the other's continuation never runs.
     const spawned = () =>
       runs.filter((r) =>
-        store.getRun(r.id)?.steps.some((s) => s.id.startsWith('continue-') && s.status === 'failed'),
+        store.getRun(r.id)?.steps.some((s) => s.id === 'work' && s.iterations > 1 && s.status === 'failed'),
       ).length;
     await expect.poll(spawned, { timeout: 30_000 }).toBe(1);
     await new Promise((resolve) => setTimeout(resolve, 1_500));
@@ -595,7 +742,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     // something pumps the manager, so the resume is only real once its step RUNS and settles.
     await expect
       .poll(
-        () => store.getRun(record.id)?.steps.find((step) => step.id === 'continue-1')?.status,
+        () => store.getRun(record.id)?.steps.find((step) => step.id === 'work')?.status,
         { timeout: 20_000 },
       )
       .toBe('done');
