@@ -114,6 +114,8 @@ additive read routes back it: `GET /repo/tree` (the whole `git ls-files` index, 
 
 ## Progress
 
+PR: #1299
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Browse and view
@@ -128,11 +130,33 @@ additive read routes back it: `GET /repo/tree` (the whole `git ls-files` index, 
 - [x] 1.8 Tab wiring and the git/files routes — 7015f341
 - [x] 1.9 FilePreview source discriminant — 7015f341
 - [x] 1.10 Markdown rendering with the Rendered/Source toggle — 7015f341
-- [ ] 1.11 Docs — BACKWARD_COMPATIBILITY §2 and docs/reference.md
+- [x] 1.11 Docs — BACKWARD_COMPATIBILITY §2 and docs/reference.md — a9732170 + 4ccdaab8
 
 ### Phase 2: Search
 
-- [ ] 2.12 matchPaths matcher module
-- [ ] 2.13 Filter UI over the loaded index
-- [ ] 2.14 Keyboard and accessibility pass
-- [ ] 2.15 End-to-end spec (local/QA only, not a merge gate)
+- [x] 2.12 matchPaths matcher module — ab2b03b5
+- [x] 2.13 Filter UI over the loaded index — ab2b03b5
+- [x] 2.14 Keyboard and accessibility pass — ab2b03b5
+- [x] 2.15 End-to-end spec (local/QA only, not a merge gate) — ef126571
+
+## 🧪 Validation
+
+Full gate, env-cleared (`TMPDIR`/`TMP`/`TEMP` plus every `CEZ_*` unset — this repo's suites read
+them, and leaving them set fails ~2 unrelated tests):
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | ✅ — includes the mutual `contract-parity` assertions for both new routes |
+| `npm test` | ✅ 8972 passed, 3 skipped, 0 failed (528 files) |
+| `npm run test:unit` | ✅ 0 failed |
+| `npm run build` | ✅ `check:pack ok — 745 files` |
+| `npm run test:package` | ✅ 17 passed |
+
+New coverage: 24 server cases (`repo-files-api.test.ts`), 10 matcher cases, 19 component cases in
+`repo-git.test.tsx`, 5 generic-tree-builder cases, and one browser e2e spec.
+
+**Not verified:** the browser e2e (`packages/web/e2e/repo-files.e2e.ts`) was written but never run —
+no browser can launch in this environment (bundled Chromium needs `libnspr4`, no passwordless sudo)
+and the suite runs in no CI workflow, so a green pipeline says nothing about it. There are therefore
+no UI screenshots for this run; the UI is covered by component tests only. Performance on a
+repository near the 20 000-path cap is inferred from the cap, not measured.
