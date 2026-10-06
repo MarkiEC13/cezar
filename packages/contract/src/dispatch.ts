@@ -117,7 +117,7 @@ export const dispatchSchema = z.object({
        * in full through the Guard inbox message, which is a markdown file under no
        * schema.
        */
-      questions: z.array(z.string().max(400)).max(4),
+      questions: z.array(z.string().max(400)).max(PENDING_ASK_MAX_QUESTIONS),
       /**
        * Additive: how many of the ask's questions are NOT in `questions[]` above,
        * written only when the list was truncated. Absent means nothing was omitted,
