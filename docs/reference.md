@@ -283,13 +283,15 @@ and a value inherited from the server's own environment is replaced:
 | `CEZ_ATTEMPT` | 1-based attempt number of this check within the run |
 | `CEZ_SHARED_CACHE_DIR` | `~/.cezar/cache/<projectId>` (`0700`), shared by the project's tasks — e.g. an e2e replay cache |
 | `CEZ_GITHUB_REPO`, `CEZ_GITHUB_NUMBER`, `CEZ_GITHUB_EVENT` | runs a GitHub automation launched only |
-| `CEZ_PR_HEAD_SHA`, `CEZ_PR_HEAD_REF`, `CEZ_PR_BASE_REF` | reserved for pull-request-head runs; not set yet, and cleared from the inherited environment like the rest |
+| `CEZ_PR_HEAD_SHA`, `CEZ_PR_HEAD_REF`, `CEZ_PR_BASE_REF` | runs a `checkout: "pr-head"` automation launched on a pull request's head only |
 
 `CEZ_PROJECT_ID` is the one name in that table cezar also reads as an *input*
 (it is how `cez task` and `cez automation` address a cockpit, see
 [backward compatibility](../BACKWARD_COMPATIBILITY.md) §1). A run that knows its
 own project replaces it; a headless `cezar run` that does not leaves whatever
 you exported alone, so a check step can still reach the cockpit you named.
+
+A GitHub automation whose events are all `pull_request.*` can set `"checkout": "pr-head"` in its `task`: each launched run forks its worktree from the matched PR's head (fetched into `refs/cezar/pr/<n>`) instead of the base branch, so its check steps verify the PR itself. A closed PR or a fork head launches nothing (`skipped` in the execution log) unless `"allowForkHeads": true` admits forks — whose checks then run without check credentials. Such a run cannot open a draft PR (`409`). See [Verify a pull request](e2e-verification.md#verify-a-pull-request).
 
 `onFail.retryOn` narrows the loop to the exit codes that mean *the work is
 wrong*. Omitted, any non-zero code loops back — right for `npm test`, which
