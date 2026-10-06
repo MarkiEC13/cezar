@@ -33,7 +33,7 @@ packages as a new provisioning mechanism, or modifying unrelated descriptors/pla
 - [x] 2.1 Implement the minimal staged-library fallback and justified rootless
   sandbox/environment propagation in the descriptor. — a78cb6ba
 - [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and
-  exported environment values; prove the old descriptor fails where practical. — a78cb6ba
+  exported environment values; prove the old descriptor fails where practical. — a78cb6ba, 780dafbe
 - [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect
   the complete diff for scope creep. — a8a657b3
 - [x] 2.4 Wire the generated QA bootstrap to persist and export the effective browser
@@ -66,7 +66,7 @@ packages as a new provisioning mechanism, or modifying unrelated descriptors/pla
 ### Phase 2: descriptor fix and focused validation
 
 - [x] 2.1 Implement the minimal staged-library fallback and justified rootless sandbox/environment propagation in the descriptor. — a78cb6ba
-- [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical. — a78cb6ba
+- [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical. — a78cb6ba, 780dafbe
 - [x] 2.3 Run the descriptor harness and relevant documentation checks, then inspect the complete diff for scope creep. — a8a657b3
 - [x] 2.4 Wire the generated QA bootstrap to persist and export the effective browser environment, including user-namespace detection and a real launch probe when `doctor` cannot honor browser args. — e1c11878, d5f0caee, b43243da
 
