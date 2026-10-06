@@ -15,7 +15,9 @@ function isSubsequence(haystack: string, needle: string): boolean {
   for (const char of needle) {
     at = haystack.indexOf(char, at)
     if (at === -1) return false
-    at += 1
+    // `char.length`, not 1: iterating a string yields code POINTS, so an astral character is two
+    // code units wide and advancing by one would let its trailing surrogate match again.
+    at += char.length
   }
   return true
 }
@@ -55,5 +57,5 @@ export function matchPaths(paths: readonly string[], query: string, limit: numbe
     return a.path.localeCompare(b.path)
   })
 
-  return { results: matched.slice(0, limit).map((m) => m.path), total: matched.length }
+  return { results: matched.slice(0, limit).map((match) => match.path), total: matched.length }
 }

@@ -1272,27 +1272,41 @@ export function useRepoChanges() {
   })
 }
 
-/** The repository's path index behind the Git tab's Files sub-tab (#1279). Same 409 stance as the
- *  rest of the family: "not a git repository" is an answer, not a hiccup. One read per visit feeds
- *  both the tree and the filter — `/repo/*` is deliberately not on the SSE stream, so freshness
- *  rides the family's `refetchOnWindowFocus` default rather than a poll. */
+/**
+ * The repository's path index behind the Git tab's Files sub-tab (#1279). Same 409 stance as the
+ * rest of the family: "not a git repository" is an answer, not a hiccup. One read per visit feeds
+ * both the tree and the filter.
+ *
+ * `/repo/*` is deliberately NOT on the SSE stream, so there is no invalidation to ride and the
+ * query-client doctrine's "the stream says when something changed" does not cover it. This is the
+ * same hole `useRunChanges` opted out of, for the same reason and with the same two knobs: the data
+ * is a working tree an agent is actively editing, so coming back to the tab must re-read it rather
+ * than serve a snapshot from before the agent ran. `refetchOnWindowFocus` alone would not do it —
+ * the shared 5-minute `staleTime` would swallow the refetch — which is why `staleTime: 0` is here
+ * too. No polling: this fires on focus, not on a schedule.
+ */
 export function useRepoTree() {
   return useQuery({
     queryKey: queryKeys.repoTree,
     queryFn: ({ signal }) => getRepoTree({ signal }),
     retry: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   })
 }
 
 /** One repository file for the Files sub-tab's viewer. `path` is `undefined` while nothing is
  *  selected. A 409 ("path is not in the repository index: …", "symlinks are not served: …") is the
- *  server's answer, so retries are off; cached per path, making re-selection free. */
+ *  server's answer, so retries are off; cached per path, making re-selection free. Same freshness
+ *  override as `useRepoTree` — the pane must not keep showing bytes an agent has since rewritten. */
 export function useRepoFile(path: string | undefined) {
   return useQuery({
     queryKey: queryKeys.repoFile(path ?? ''),
     queryFn: ({ signal }) => getRepoFile(path as string, { signal }),
     enabled: path !== undefined && path !== '',
     retry: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   })
 }
 

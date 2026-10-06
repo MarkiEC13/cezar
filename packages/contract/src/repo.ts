@@ -175,7 +175,8 @@ export type RepoTree = z.infer<typeof repoTreeSchema>;
  * Deliberately NOT shared with `GET /runs/:id/files`: that route's query has always accepted any
  * `raw` value and a `path` of `''` (the worktree root listing), and narrowing it here would be a
  * wire change nobody asked for. Every indexed path is a file, so this route has no root listing to
- * serve and can afford the stricter shape.
+ * serve and can afford the stricter shape — including rejecting a REPEATED key (hono hands those to
+ * the validator as an array), which the older route had to keep collapsing to the first value.
  */
 export const repoFileQuerySchema = z.object({
   path: z.string().min(1),

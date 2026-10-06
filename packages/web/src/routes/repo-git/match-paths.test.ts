@@ -62,6 +62,13 @@ describe('matchPaths', () => {
     expect(matchPaths(paths, 'ünï', 10).results).toEqual(['ünïcode.md'])
   })
 
+  it('does not reuse half of an astral character (the surrogate-pair advance)', () => {
+    // '🙂' is two code units. Advancing by one would leave its trailing surrogate matchable, so a
+    // two-emoji needle would match a one-emoji path.
+    expect(matchPaths(['a🙂.ts'], '🙂🙂', 10).results).toEqual([])
+    expect(matchPaths(['a🙂b🙂.ts'], '🙂🙂', 10).results).toEqual(['a🙂b🙂.ts'])
+  })
+
   it('an exhausted needle character is not reused — ordering is respected', () => {
     // 'aa' must NOT match a path with a single 'a'.
     expect(matchPaths(['bab.ts'], 'aa', 10).results).toEqual([])

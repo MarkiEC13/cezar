@@ -264,6 +264,9 @@ describe('repo file-browser routes', () => {
     expect((await apiRequest(app, '/api/v1/repo/files')).status).toBe(400);
     expect((await file('path=')).status).toBe(400);
     expect((await file('path=src%2Fapp.ts&raw=maybe')).status).toBe(400);
+    // A REPEATED key reaches the validator as an array. The older /runs/:id/files had to collapse
+    // that to the first value for compatibility; this route is new and says no instead.
+    expect((await file('path=src%2Fapp.ts&path=.env')).status).toBe(400);
   });
 
   // ---- the ordinary answers ----------------------------------------------------------------
