@@ -14,13 +14,13 @@ increases, and changes to queue semantics or template composition.
 
 ### Phase 1: reproduce and fix fixture teardown
 
-- [ ] 1.1 Re-run the scoped auto-resume suite and identify active work that survives the test body.
-- [ ] 1.2 Await terminal lifecycle state before disposing and removing the temporary repository.
+- [x] 1.1 Re-run the scoped auto-resume suite and identify active work that survives the test body. — baseline passed once; teardown race confirmed by issue evidence
+- [x] 1.2 Await terminal lifecycle state before disposing and removing the temporary repository.
 
 ### Phase 2: synchronize template assertion
 
-- [ ] 2.1 Re-run the GitHub suite and trace the second-selection settlement boundary.
-- [ ] 2.2 Assert the settled value after the second selection with causal synchronization.
+- [x] 2.1 Re-run the GitHub suite and trace the second-selection settlement boundary. — baseline reproduced 130/131
+- [x] 2.2 Assert the settled value after the second selection with causal synchronization.
 
 ### Phase 3: validate and review
 
