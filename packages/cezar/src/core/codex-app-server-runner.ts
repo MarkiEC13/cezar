@@ -618,8 +618,15 @@ class CodexSession implements AgentSession {
 
 // ---- helpers --------------------------------------------------------------
 
+/**
+ * Map Codex's native `requestUserInput` questions onto the portable ask shape.
+ * The counts are deliberately NOT checked here — `parseAskRequest` at the end
+ * is the only judge of how many questions and options a card may carry, so
+ * `ASK_MAX_QUESTIONS` has one definition instead of a copy here that silently
+ * stays behind when it moves (it did: this line read `value.length > 4`).
+ */
 function codexAskQuestions(value: unknown): AskQuestion[] | null {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 4) return null;
+  if (!Array.isArray(value)) return null;
   const questions: unknown[] = [];
   for (const raw of value) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
