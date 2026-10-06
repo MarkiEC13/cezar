@@ -32,14 +32,14 @@ Scope note: the brief names the question cap. The option cap is raised in the sa
 
 ### Phase 1: Widen the schema
 
-- [ ] 1.1 Named bounds in `core/ask.ts`, raised to 20 questions / 10 options, with the parity rationale retired in the header.
-- [ ] 1.2 Drop the duplicated count bound in `codexAskQuestions`.
-- [ ] 1.3 Schema tests: a 5-question and an at-the-max payload accepted, over-the-max rejected with distinct questions, option bound likewise.
+- [x] 1.1 Named bounds in `core/ask.ts`, raised to 20 questions / 10 options, with the parity rationale retired in the header. — 26efe79e
+- [x] 1.2 Drop the duplicated count bound in `codexAskQuestions`. — 26efe79e
+- [x] 1.3 Schema tests: a 5-question and an at-the-max payload accepted, over-the-max rejected with distinct questions, option bound likewise. Plus a `mock:ask-many` integration test (6 questions, 6 options) that is red at 4/4. — 26efe79e
 
 ### Phase 2: Keep the parked record readable
 
-- [ ] 2.1 Persist at most the contract's 4 question texts with an additive `omittedQuestions`, and report the remainder as `(+N more)`.
-- [ ] 2.2 Tests: a 6-question park writes a schema-valid record, keeps the full inbox message, and settles `blocked` naming the omitted count.
+- [x] 2.1 Persist at most the contract's 4 question texts with an additive `omittedQuestions`, and report the remainder as `(+N more)`. — 9065eb4d
+- [x] 2.2 Tests: a 6-question park writes a schema-valid record, keeps the full inbox message, and settles `blocked` naming the omitted count. — 9065eb4d
 
 ### Phase 3: Teach and document
 
