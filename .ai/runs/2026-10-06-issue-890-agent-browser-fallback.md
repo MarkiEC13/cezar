@@ -25,15 +25,15 @@ mechanism, or modifying unrelated descriptors/plans.
 
 ### Phase 1: preflight and plan
 
-- [ ] 1.1 Recheck issue/PR claims, current main, and the descriptor's failure path.
-- [ ] 1.2 Commit this execution plan and open the draft PR.
+- [x] 1.1 Recheck issue/PR claims, current main, and the descriptor's failure path. — e615153d
+- [x] 1.2 Commit this execution plan and open the draft PR. — e615153d (PR #1294)
 
 ### Phase 2: descriptor fix and focused validation
 
-- [ ] 2.1 Implement the minimal staged-library fallback and justified rootless
-  sandbox/environment propagation in the descriptor.
-- [ ] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and
-  exported environment values; prove the old descriptor fails where practical.
+- [x] 2.1 Implement the minimal staged-library fallback and justified rootless
+  sandbox/environment propagation in the descriptor. — a78cb6ba
+- [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and
+  exported environment values; prove the old descriptor fails where practical. — a78cb6ba
 - [ ] 2.3 Run the descriptor harness and relevant documentation checks, then inspect
   the complete diff for scope creep.
 
@@ -56,13 +56,13 @@ mechanism, or modifying unrelated descriptors/plans.
 
 ### Phase 1: preflight and plan
 
-- [ ] 1.1 Recheck issue/PR claims, current main, and the descriptor's failure path.
-- [ ] 1.2 Commit this execution plan and open the draft PR.
+- [x] 1.1 Recheck issue/PR claims, current main, and the descriptor's failure path. — e615153d
+- [x] 1.2 Commit this execution plan and open the draft PR. — e615153d (PR #1294)
 
 ### Phase 2: descriptor fix and focused validation
 
-- [ ] 2.1 Implement the minimal staged-library fallback and justified rootless sandbox/environment propagation in the descriptor.
-- [ ] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical.
+- [x] 2.1 Implement the minimal staged-library fallback and justified rootless sandbox/environment propagation in the descriptor. — a78cb6ba
+- [x] 2.2 Add isolated provider fixtures/docs proving failure, fallback success, and exported environment values; prove the old descriptor fails where practical. — a78cb6ba
 - [ ] 2.3 Run the descriptor harness and relevant documentation checks, then inspect the complete diff for scope creep.
 
 ### Phase 3: completion
