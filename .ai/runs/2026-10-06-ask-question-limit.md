@@ -30,6 +30,8 @@ Scope note: the brief names the question cap. The option cap is raised in the sa
 
 PR: #1312
 
+Review: `om-auto-review-pr --autofix` found two majors in this PR's own diff — the new `PENDING_ASK_MAX_QUESTIONS` not wired to the schema beside it, and `codexAskQuestions` mapping an unbounded array before validation once its length check was dropped. Both fixed in de4a7c5b; the full gate was re-run green after.
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Widen the schema
