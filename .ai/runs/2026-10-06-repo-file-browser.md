@@ -118,10 +118,10 @@ additive read routes back it: `GET /repo/tree` (the whole `git ls-files` index, 
 
 ### Phase 1: Browse and view
 
-- [ ] 1.1 Contract — repoTreeSchema and repoFileQuerySchema
-- [ ] 1.2 Index helper — listRepoPaths
-- [ ] 1.3 GET /repo/tree
-- [ ] 1.4 GET /repo/files with the index-membership guard
+- [x] 1.1 Contract — repoTreeSchema and repoFileQuerySchema — a9732170
+- [x] 1.2 Index helper — listRepoPaths — a9732170
+- [x] 1.3 GET /repo/tree — a9732170
+- [x] 1.4 GET /repo/files with the index-membership guard — a9732170
 - [ ] 1.5 Client functions and query hooks
 - [ ] 1.6 Generic tree builder over plain paths
 - [ ] 1.7 RepoFilesSection and the repo tree
