@@ -72,4 +72,15 @@ SUCCESS_OUTPUT=$(run_case fallback "$TMP/home" 0)
 grep -F 'BROWSER_INSTALLED=1' "$SUCCESS_OUTPUT" >/dev/null
 grep -F 'BROWSER_ENV_LD_LIBRARY_PATH=' "$SUCCESS_OUTPUT" >/dev/null
 grep -F 'BROWSER_ENV_AGENT_BROWSER_ARGS=--no-sandbox' "$SUCCESS_OUTPUT" >/dev/null
+cat > "$TMP/test-env.json" <<'EOF'
+{"browser":{"installed":true,"environment":{"LD_LIBRARY_PATH":"/tmp/staged/lib","AGENT_BROWSER_ARGS":"--no-sandbox"}}}
+EOF
+PROPAGATED=$(node -e '
+  const d = require(process.argv[1]);
+  for (const [key, value] of Object.entries(d.browser.environment || {})) {
+    if (value) process.stdout.write(key + "=" + value + "\n");
+  }
+' "$TMP/test-env.json")
+printf '%s\n' "$PROPAGATED" | grep -Fx 'LD_LIBRARY_PATH=/tmp/staged/lib' >/dev/null
+printf '%s\n' "$PROPAGATED" | grep -Fx 'AGENT_BROWSER_ARGS=--no-sandbox' >/dev/null
 echo "agent-browser rootless fallback fixture: PASS"
