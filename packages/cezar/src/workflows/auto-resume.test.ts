@@ -93,8 +93,13 @@ describe('a run stopped by a usage limit resumes itself', () => {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
-    store.flush();
-    rmSync(repoRoot, { recursive: true, force: true });
+    // If cancellation never drained, keep the fixture so a still-running provider cannot write
+    // into a removed path. The teardown error is the useful failure; leaking this temp directory
+    // is safer than recreating the ENOENT race this test guards against.
+    if (!teardownError) {
+      store.flush();
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
     if (teardownError) throw teardownError;
   });
 
