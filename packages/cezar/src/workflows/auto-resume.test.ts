@@ -66,9 +66,20 @@ describe('a run stopped by a usage limit resumes itself', () => {
     store = RunStore.open(join(repoRoot, '.ai/cezar'));
   });
 
-  afterEach(() => {
-    manager?.dispose();
-    manager = undefined;
+  afterEach(async () => {
+    if (manager) {
+      // Cancellation interrupts active provider sessions and removes queued work, but the final
+      // lifecycle writes still settle asynchronously. Drain every record before deleting the
+      // fixture: a late runs.json save can recreate a child path during rmSync (#804).
+      for (const { id } of store.listRuns()) manager.cancel(id);
+      const deadline = Date.now() + 10_000;
+      while (store.listRuns().some(({ id }) => manager?.isActive(id))) {
+        if (Date.now() >= deadline) throw new Error('timed out waiting for auto-resume runs to stop');
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      manager.dispose();
+      manager = undefined;
+    }
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
