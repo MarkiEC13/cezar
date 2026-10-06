@@ -333,7 +333,16 @@ ensure_browser() {
       BROWSER_ENV_AGENT_BROWSER_ARGS="${AGENT_BROWSER_ARGS:-}"
     fi
   fi
-  if "$BROWSER_COMMAND" doctor --json >/dev/null 2>&1; then
+  browser_probe() {
+    BROWSER_PROBE_SESSION="cez-provider-probe-$$"
+    if "$BROWSER_COMMAND" --session "$BROWSER_PROBE_SESSION" open about:blank --json >/dev/null 2>&1; then
+      "$BROWSER_COMMAND" --session "$BROWSER_PROBE_SESSION" close --json >/dev/null 2>&1 || true
+      return 0
+    fi
+    "$BROWSER_COMMAND" --session "$BROWSER_PROBE_SESSION" close --json >/dev/null 2>&1 || true
+    return 1
+  }
+  if "$BROWSER_COMMAND" doctor --json >/dev/null 2>&1 || browser_probe; then
     BROWSER_INSTALLED=1
     BROWSER_VERSION=$("$BROWSER_COMMAND" --version 2>/dev/null || echo unknown)
   else

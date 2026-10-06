@@ -97,7 +97,16 @@ if ! "$AGENT_BROWSER_BIN" doctor --json >/dev/null 2>&1 && [ "$(uname -s 2>/dev/
     fi
   fi
 fi
-if "$AGENT_BROWSER_BIN" doctor --json >/dev/null; then
+browser_probe() {
+  BROWSER_PROBE_SESSION="cez-provider-probe-$$"
+  if "$AGENT_BROWSER_BIN" --session "$BROWSER_PROBE_SESSION" open about:blank --json >/dev/null 2>&1; then
+    "$AGENT_BROWSER_BIN" --session "$BROWSER_PROBE_SESSION" close --json >/dev/null 2>&1 || true
+    return 0
+  fi
+  "$AGENT_BROWSER_BIN" --session "$BROWSER_PROBE_SESSION" close --json >/dev/null 2>&1 || true
+  return 1
+}
+if "$AGENT_BROWSER_BIN" doctor --json >/dev/null 2>&1 || browser_probe; then
   printf 'BROWSER_PROVIDER=agent-browser\nBROWSER_INSTALLED=1\nBROWSER_COMMAND=%s\nBROWSER_VERSION=%s\nBROWSER_ENV_LD_LIBRARY_PATH=%s\nBROWSER_ENV_AGENT_BROWSER_ARGS=%s\nBROWSER_NOTES=\n' \
     "$AGENT_BROWSER_BIN" "$("$AGENT_BROWSER_BIN" --version 2>/dev/null || echo unknown)" "${LD_LIBRARY_PATH:-}" "${AGENT_BROWSER_ARGS:-}"
 else

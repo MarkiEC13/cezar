@@ -31,6 +31,10 @@ case "${1:-}" in
     case ",${AGENT_BROWSER_ARGS:-}," in *,--no-sandbox,*) ;; *) exit 1 ;; esac
     case ":${LD_LIBRARY_PATH:-}:" in *".agent-browser/deps/lib"*) exit 0 ;; *) exit 1 ;; esac
     ;;
+  open|close)
+    case ",${AGENT_BROWSER_ARGS:-}," in *,--no-sandbox,*) ;; *) exit 1 ;; esac
+    case ":${LD_LIBRARY_PATH:-}:" in *".agent-browser/deps/lib"*) exit 0 ;; *) exit 1 ;; esac
+    ;;
   *) exit 2 ;;
 esac
 EOF
