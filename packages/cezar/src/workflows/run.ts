@@ -2382,7 +2382,9 @@ export class RunManager {
       return;
     }
     const attempts = (run.autoResumeAttempts ?? 0) + 1;
-    // #1300: resume the saved workflow so later steps execute after the interrupted session.
+    // #1300: a workflow interruption must return to its executor after the resumed session.
+    // The saved workflow and failed step/session already supply the recovery checkpoint,
+    // including when the queued run is reconstructed after a restart.
     const workflowStep = this.interruptedWorkflowStep(run);
     let resumed: { ok: boolean; error?: string };
     if (workflowStep && run.workflowDef) {
@@ -4215,17 +4217,30 @@ export class RunManager {
     // twin is in `runContinuation`.
     this.prepareDispatchSession(runId, state);
     this.prepareAutomationsSession(state);
-    // A limit must not replenish a check's retry budget (#1300). Replay the engine's durable
-    // retry notes: step iterations also count successful checks rerun by another check's loop.
+    // #1300: retry accounting belongs to the step checkpoint, not the optional transcript.
+    // Iterations also count successful checks rerun by another check's loop. An older executed
+    // check has unknown accounting, so conservatively spend its cap rather than grant retries.
     const retriesUsed = new Map<string, number>();
-    if (resumeStep && workflow.steps.some((step) => step.onFail)) {
-      for (const event of this.store.readEvents(runId)) {
-        if (event.type === 'note' && typeof event.stepId === 'string' &&
-            typeof event.message === 'string' && event.message.startsWith('check failed — retrying from "')) {
-          retriesUsed.set(event.stepId, (retriesUsed.get(event.stepId) ?? 0) + 1);
-        }
+    let initializedRetryBudget = false;
+    const checkpoint = this.store.getRun(runId);
+    for (const step of workflow.steps) {
+      if (!step.onFail) continue;
+      const record = checkpoint?.steps.find((candidate) => candidate.id === step.id);
+      const legacyExecuted = record?.retriesUsed === undefined && (record?.iterations ?? 0) > 0;
+      const used = record?.retriesUsed ?? (legacyExecuted ? step.onFail.max : 0);
+      retriesUsed.set(step.id, used);
+      if (record?.retriesUsed === undefined) {
+        this.store.updateStep(runId, step.id, { retriesUsed: used });
+        initializedRetryBudget = true;
+      }
+      if (legacyExecuted) {
+        emit({
+          type: 'note', stepId: step.id,
+          message: 'check retry accounting unavailable on this older record — no further retries granted',
+        });
       }
     }
+    if (initializedRetryBudget) this.store.flush();
     let checkFailure: string | null = null;
     let runError: string | null = null;
     let idleFailed = false;
@@ -4366,6 +4381,9 @@ export class RunManager {
       const used = retriesUsed.get(step.id) ?? 0;
       if (step.onFail && used < step.onFail.max) {
         retriesUsed.set(step.id, used + 1);
+        // #1300: commit the consumed retry before another agent can start, even after a crash.
+        this.store.updateStep(runId, step.id, { retriesUsed: used + 1 });
+        this.store.flush();
         checkFailure = output;
         this.finishStep(runId, step.id, 'failed', 'check failed — looping back', emit);
         const retryIdx = workflow.steps.findIndex((s) => s.id === step.onFail?.retry);
@@ -4384,7 +4402,7 @@ export class RunManager {
       }
 
       this.finishStep(runId, step.id, 'failed', `\`${step.command}\` exited non-zero`, emit);
-      runError = `check "${step.id}" failed${step.onFail ? ` after ${used + 1} attempts` : ''}`;
+      runError = `check "${step.id}" failed${step.onFail ? ` after ${iteration} attempts` : ''}`;
       break;
     }
 
