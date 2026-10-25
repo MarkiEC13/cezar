@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentBackend, AgentRunSpec } from '../core/agent-runner.ts';
 import * as runnerFactory from '../core/runner-factory.ts';
 import { removeWorktree } from '../git-worktree.ts';
+import { graphToSteps, type WorkflowGraph } from './graph.ts';
+import { READ_ONLY_PROMPT, READ_ONLY_TOOLS } from './landing.ts';
 import { RunStore } from '../runs/store.ts';
 import { mergeWriteAgentAccounts } from '../workspace/agent-accounts.ts';
 import { WorkspaceSemaphore } from '../workspace/semaphore.ts';
@@ -358,9 +360,13 @@ describe('a run stopped by a usage limit resumes itself', () => {
     { transcript: 'intact', legacy: false },
     { transcript: 'missing', legacy: false },
     { transcript: 'malformed', legacy: false },
-    { transcript: 'missing', legacy: true },
-    { transcript: 'malformed', legacy: true },
-  ])('keeps the check retry budget after restart (transcript=$transcript, legacy=$legacy)', async ({ transcript, legacy }) => {
+    // A legacy record whose walk kept the loop count resumes with that exact count; only one
+    // with neither falls back to the conservative rule and says so.
+    { transcript: 'missing', legacy: 'walk' },
+    { transcript: 'malformed', legacy: 'walk' },
+    { transcript: 'missing', legacy: 'no-walk' },
+    { transcript: 'malformed', legacy: 'no-walk' },
+  ] as const)('keeps the check retry budget after restart (transcript=$transcript, legacy=$legacy)', async ({ transcript, legacy }) => {
     // First attempt reaches the failing check; the check's one retry hits the usage limit.
     let durableRetriesAtSpawn: number | undefined;
     const sessions = mockRunnerSessions((spec, invocation) => {
@@ -386,6 +392,8 @@ describe('a run stopped by a usage limit resumes itself', () => {
     manager.dispose();
     store.updateRun(record.id, { autoResumeAt: new Date(Date.now() - 1_000).toISOString() });
     if (legacy) store.updateStep(record.id, 'check', { retriesUsed: undefined });
+    if (legacy === 'walk') expect(Object.values(store.getRun(record.id)?.graphState?.loops ?? {})).toEqual([1]);
+    if (legacy === 'no-walk') store.updateRun(record.id, { graphState: undefined });
     store.flush();
     const eventsPath = join(repoRoot, '.ai/cezar/runs', `${record.id}.ndjson`);
     if (transcript === 'missing') {
@@ -411,7 +419,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
       event.stepId === 'check' &&
       event.message === 'check retry accounting unavailable on this older record — no further retries granted',
     );
-    expect(accountingNote).toBe(legacy);
+    expect(accountingNote).toBe(legacy === 'no-walk');
   }, 40_000);
 
   it('does not spend a successful check\'s retry budget when another check loops through it', async () => {
@@ -961,5 +969,202 @@ describe('a run stopped by a usage limit resumes itself', () => {
     await expect.poll(() => store.getRun(record.id)?.status, { timeout: 5_000 }).toMatch(/^(done|review)$/);
     const events = store.readEvents(record.id);
     expect(events.some((event) => String(event.message ?? '').includes('resuming automatically (1/12)'))).toBe(true);
+  }, 40_000);
+
+  type Scheduler = {
+    autoResumeTimers: Map<string, ReturnType<typeof setTimeout>>;
+    fireAutoResume(runId: string): void;
+    pump(): Promise<void>;
+    lifecycle: { acquireAgentLease(runId: string): Promise<() => void> };
+  };
+  /** Deliver the armed timer's callback now, clearing its real handle first. */
+  function fireNow(runId: string): Scheduler {
+    const scheduler = manager as unknown as Scheduler;
+    clearTimeout(scheduler.autoResumeTimers.get(runId));
+    scheduler.fireAutoResume(runId);
+    return scheduler;
+  }
+  async function restartAndRecover(): Promise<void> {
+    manager?.dispose();
+    store.flush();
+    store = RunStore.open(join(repoRoot, '.ai/cezar'), { keepLive: true });
+    manager = new RunManager(store, repoRoot);
+    await manager.recover();
+  }
+
+  // #1597 rides through both rebuilt-input paths: a read-only task must never gain write tools.
+  it.each(['auto-resume', 'queued auto-resume across a restart', 'queued before it started'] as const)(
+    'keeps a read-only task read-only (%s)', async (path) => {
+      const sessions = mockRunnerSessions();
+      manager = new RunManager(store, repoRoot);
+      if (path === 'queued before it started') {
+        const pump = vi.spyOn(manager as unknown as Scheduler, 'pump').mockResolvedValue();
+        const record = manager.startRun(workflow, { task: 'mock:done answer a question', readOnly: true });
+        expect(store.getRun(record.id)?.status).toBe('queued');
+        pump.mockRestore();
+        await restartAndRecover();
+        await settle(record.id);
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0]?.spec.allowedTools).toEqual(READ_ONLY_TOOLS);
+        return;
+      }
+      const record = manager.startRun(workflow, { task: 'mock:limit answer a question', readOnly: true });
+      await settle(record.id);
+      const failed = store.getRun(record.id);
+      expect(failed?.autoResumeAt).toBeDefined();
+      expect(sessions[0]?.spec.allowedTools).toEqual(READ_ONLY_TOOLS);
+      const recordedPrompt = failed?.systemPrompt;
+      expect(recordedPrompt).toContain(READ_ONLY_PROMPT);
+      store.updateRun(record.id, { task: 'mock:done answer a question' });
+      if (path === 'auto-resume') {
+        fireNow(record.id);
+      } else {
+        const pump = vi.spyOn(manager as unknown as Scheduler, 'pump').mockResolvedValue();
+        fireNow(record.id);
+        expect(store.getRun(record.id)?.status).toBe('queued');
+        pump.mockRestore();
+        await restartAndRecover();
+      }
+      await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toMatch(/^(done|review)$/);
+      expect(sessions).toHaveLength(2);
+      expect(sessions[1]?.spec).toMatchObject({ resume: true, cwd: repoRoot, allowedTools: READ_ONLY_TOOLS });
+      // The recorded prompt is reused, not re-composed around itself.
+      expect(store.getRun(record.id)?.systemPrompt).toBe(recordedPrompt);
+    }, 40_000,
+  );
+
+  it('holds the task worktree\'s agent lease while the resumed step runs', async () => {
+    const leased: string[] = [];
+    const sessions = mockRunnerSessions((spec, invocation) => {
+      if (invocation === 2) leased.push(...held);
+      return spec;
+    });
+    const held: string[] = [];
+    const chain: WorkflowDef = {
+      name: 'plan-and-review', source: 'built-in', steps: [
+        { id: 'plan', prompt: '{{task}}' },
+        { id: 'review', prompt: 'mock:done review the plan' },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const { lifecycle } = manager as unknown as Scheduler;
+    const acquire = lifecycle.acquireAgentLease.bind(lifecycle);
+    vi.spyOn(lifecycle, 'acquireAgentLease').mockImplementation(async (runId) => {
+      const release = await acquire(runId);
+      held.push(runId);
+      return () => {
+        held.splice(held.indexOf(runId), 1);
+        release();
+      };
+    });
+    const record = manager.startRun(chain, { task: 'mock:limit work in the task tree', worktree: true });
+    await settle(record.id);
+    expect(store.getRun(record.id)?.autoResumeAt).toBeDefined();
+    expect(held).toEqual([]);
+    store.updateRun(record.id, { task: 'mock:done work in the task tree' });
+    fireNow(record.id);
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toMatch(/^(done|review)$/);
+    expect(sessions[1]?.spec).toMatchObject({ resume: true, cwd: store.getRun(record.id)?.worktreePath });
+    expect(leased).toEqual([record.id]);
+  }, 40_000);
+
+  it('resumes a graph-native workflow at its interrupted agent node', async () => {
+    const sessions = mockRunnerSessions();
+    const graph: WorkflowGraph = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'prepare', type: 'agent', prompt: 'mock:done prepare' },
+        { id: 'plan', type: 'agent', prompt: '{{task}}' },
+        { id: 'review', type: 'agent', prompt: 'mock:done review the plan' },
+        { id: 'ok', type: 'end', status: 'success' },
+      ],
+      edges: [
+        { from: 'start', to: 'prepare' },
+        { from: 'prepare', to: 'plan' },
+        { from: 'plan', to: 'review' },
+        { from: 'review', to: 'ok' },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(
+      { name: 'graph', source: 'file', steps: graphToSteps(graph), graph },
+      { task: 'mock:limit plan it', worktree: false },
+    );
+    await settle(record.id);
+    const failed = store.getRun(record.id);
+    expect(failed?.autoResumeAt).toBeDefined();
+    const planSession = failed?.steps.find((step) => step.id === 'plan')?.sessionId;
+    store.updateRun(record.id, { task: 'mock:done plan it' });
+    fireNow(record.id);
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toMatch(/^(done|review)$/);
+    const resumed = store.getRun(record.id);
+    expect(resumed?.steps.map((step) => [step.id, step.status])).toEqual([
+      ['prepare', 'done'], ['plan', 'done'], ['review', 'done'],
+    ]);
+    expect(resumed?.steps.find((step) => step.id === 'prepare')?.iterations).toBe(1);
+    expect(sessions).toHaveLength(4);
+    expect(sessions[2]?.spec).toMatchObject({ sessionId: planSession, resume: true });
+  }, 40_000);
+
+  it('cancelling a fired resume while it waits in the queue starts nothing', async () => {
+    const sessions = mockRunnerSessions();
+    const chain: WorkflowDef = {
+      name: 'plan-and-review', source: 'built-in', steps: [
+        { id: 'plan', prompt: '{{task}}' },
+        { id: 'review', prompt: 'mock:done review the plan' },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(chain, { task: 'mock:limit plan it', worktree: false });
+    await settle(record.id);
+    store.updateRun(record.id, { task: 'mock:done plan it' });
+    const pump = vi.spyOn(manager as unknown as Scheduler, 'pump').mockResolvedValue();
+    fireNow(record.id);
+    expect(store.getRun(record.id)?.status).toBe('queued');
+    manager.cancel(record.id);
+    pump.mockRestore();
+    await (manager as unknown as Scheduler).pump();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(store.getRun(record.id)?.status).toBe('cancelled');
+    expect(store.getRun(record.id)?.autoResumeAt).toBeUndefined();
+    expect(sessions).toHaveLength(1);
+  }, 30_000);
+
+  it('a failed agent behind a wired failed port never hijacks a later restart cursor', async () => {
+    const sessions = mockRunnerSessions();
+    const graph: WorkflowGraph = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'plan', type: 'agent', prompt: '{{task}}' },
+        { id: 'note', type: 'check', command: 'true' },
+        { id: 'ok', type: 'end', status: 'success' },
+      ],
+      edges: [
+        { from: 'start', to: 'plan' },
+        { from: 'plan', to: 'note' },
+        { from: 'plan.failed', to: 'note' },
+        { from: 'note', to: 'ok' },
+      ],
+    };
+    manager = new RunManager(store, repoRoot);
+    const record = manager.startRun(
+      { name: 'graph', source: 'file', steps: graphToSteps(graph), graph },
+      { task: 'mock:limit plan it', worktree: false },
+    );
+    await settle(record.id);
+    const walked = store.getRun(record.id);
+    expect(walked?.steps.find((step) => step.id === 'plan')?.status).toBe('failed');
+    expect(walked?.steps.find((step) => step.id === 'plan')?.error).toContain('usage limit reached|');
+    // cezar died while the walk was on the check node.
+    store.updateRun(record.id, {
+      status: 'running',
+      finishedAt: undefined,
+      graphState: { loops: {}, taken: [], ...walked?.graphState, cursor: 'note' },
+    });
+    await restartAndRecover();
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toMatch(/^(done|review)$/);
+    expect(sessions).toHaveLength(1);
+    const events = store.readEvents(record.id);
+    expect(events.some((event) => String(event.message ?? '').includes('resuming the workflow at "note" after a restart'))).toBe(true);
   }, 40_000);
 });

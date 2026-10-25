@@ -884,6 +884,9 @@ export interface StartRunInput {
    * forces a worktree — testing a PR in the user's own checkout would test the wrong tree.
    */
   forkRef?: { sha: string; label: string; pr: RunRecord['prHead'] & object; prUrl: string; untrusted: boolean };
+  /** Internal (#1300): this job resumes the agent step a usage limit interrupted. Set only by
+   *  `fireAutoResume` (and a restart that revives that queued job), never derived in `execute`. */
+  usageLimitResume?: boolean;
 }
 
 /**
@@ -2082,7 +2085,7 @@ export class RunManager {
       // Folded through the same helper `pump()` uses (#472) so a restart carries the stack.
       // Idempotent: hydration always composes from `run.task` + the stack, never from an
       // already-folded `input.task`, so re-hydrating at dequeue yields the same string.
-      input: this.workflowInput(run),
+      input: { ...this.workflowInput(run), ...(this.queuedUsageLimitResume(run) ? { usageLimitResume: true } : {}) },
     });
     this.queue.push(run.id);
     this.store.appendEvent(run.id, { type: 'lifecycle', message: `${reason} — task re-queued` });
@@ -3051,7 +3054,7 @@ export class RunManager {
       this.clearAutoResume(runId);
       this.pendingJobs.set(runId, {
         workflow: run.workflowDef,
-        input: this.workflowInput(run),
+        input: { ...this.workflowInput(run), usageLimitResume: true },
       });
       this.queue.push(runId);
       this.store.updateRun(runId, {
@@ -3097,6 +3100,17 @@ export class RunManager {
       : undefined;
   }
 
+  /**
+   * A queued run revived after a restart was an auto-resume `fireAutoResume` queued (#1300) when
+   * its walk stopped on the interrupted agent. A walk parked at another node (a restart-resume
+   * cursor) keeps that cursor — a failed agent behind a wired `failed` port must not hijack it.
+   */
+  private queuedUsageLimitResume(run: RunRecord): boolean {
+    const step = this.interruptedWorkflowStep(run);
+    const cursor = run.graphState?.cursor;
+    return step !== undefined && (cursor === undefined || cursor === step.id);
+  }
+
   /** Rebuild executable input from the durable record, for auto-resume and queued recovery. */
   private workflowInput(run: RunRecord): StartRunInput {
     return this.hydrateQueuedInput(run.id, {
@@ -3104,13 +3118,15 @@ export class RunManager {
       model: run.model,
       runner: run.runner,
       agentProfile: run.agentProfile,
-      systemPrompt: run.systemPrompt,
+      // No `systemPrompt`: the record keeps only the COMPOSED prompt, never the bare override, so
+      // feeding it back would re-compose it; a usage-limit resume reuses it verbatim in `execute`.
       generateFollowups: followupsEnabled() ? run.generateFollowups : false,
-      // Both lifecycle entry points must restore autonomy, dispatch and isolation (#489,
-      // spec 2026-09-10-dispatch A11), as well as the task's account and prompt overrides.
+      // Both lifecycle entry points must restore autonomy, dispatch, isolation and read-only
+      // (#489, spec 2026-09-10-dispatch A11, #1597), as well as the task's account.
       autonomous: run.autonomous,
       dispatch: run.dispatch,
       worktree: run.worktree,
+      ...(run.readOnly ? { readOnly: true } : {}),
     });
   }
 
@@ -3216,7 +3232,7 @@ export class RunManager {
     this.queue.push(runId);
     this.store.updateRun(runId, {
       status: 'queued',
-      startedAt: this.interruptedWorkflowStep(run) ? run.startedAt : undefined,
+      startedAt: input.usageLimitResume ? run.startedAt : undefined,
       currentStepId: undefined,
     });
     this.store.appendEvent(runId, {
@@ -5014,8 +5030,9 @@ export class RunManager {
 
   private async execute(runId: string, workflow: WorkflowDef, input: StartRunInput, ownerToken?: symbol): Promise<void> {
     const original = this.store.getRun(runId);
-    // The step/session checkpoint survives missing optional attempt accounting.
-    const resumeStep = original ? this.interruptedWorkflowStep(original) : undefined;
+    // Only a job queued as a usage-limit resume re-enters its interrupted agent (#1300); the
+    // step/session checkpoint survives missing optional attempt accounting.
+    const resumeStep = input.usageLimitResume && original ? this.interruptedWorkflowStep(original) : undefined;
     const state: ActiveRun = {
       ownerToken: ownerToken ?? Symbol('run-owner'),
       cancelled: false,
@@ -5065,11 +5082,15 @@ export class RunManager {
     // Extra system prompt (R2 2.3): POST override > config default; echoed on
     // the record so the UI/API can show what the run actually used. The landing permission or the
     // read-only rule rides along, so a Continue (which reads the record) keeps it.
-    const extraSystemPrompt = composeSystemPrompt(
-      resolveExtraSystemPrompt(input.systemPrompt, config.systemPrompt),
-      state.autoLand ? landingPromptPart(state.autoLand.baseLabel, state.autoLand.checks, state.autonomous === true) : undefined,
-      state.readOnly ? READ_ONLY_PROMPT : undefined,
-    ) || undefined;
+    // A usage-limit resume reuses the recorded prompt verbatim, as Continue does: the record holds
+    // only the composed form, and re-composing it would repeat its landing/read-only parts.
+    const extraSystemPrompt = resumeStep && original?.systemPrompt !== undefined
+      ? original.systemPrompt
+      : composeSystemPrompt(
+        resolveExtraSystemPrompt(input.systemPrompt, config.systemPrompt),
+        state.autoLand ? landingPromptPart(state.autoLand.baseLabel, state.autoLand.checks, state.autonomous === true) : undefined,
+        state.readOnly ? READ_ONLY_PROMPT : undefined,
+      ) || undefined;
     // Canonical provider/model identity (#405) — the normalised `provider/model`
     // the task ran with, persisted for cost attribution / reproducible replay
     // beside the free-text `model`. Best-effort here (a per-step `runner`/`model`
@@ -5111,7 +5132,9 @@ export class RunManager {
       if (worktreePath && existsSync(worktreePath)) state.cwd = worktreePath;
     }
     if (resumeStep && state.cwd !== this.repoRoot) {
-      // Reuse the tree as the agent left it, including a branch it checked out itself.
+      // Reuse the tree as the agent left it, including a branch it checked out itself — under the
+      // same agent lease the fresh path and `runContinuation` hold, so no reclaim races the agent.
+      state.releaseWorktree = await this.lifecycle.acquireAgentLease(runId);
       this.armAutosave(runId, state);
       emit({ type: 'note', message: 'resuming in the existing task worktree' });
     } else if (repo && input.worktree === false) {
@@ -5502,8 +5525,11 @@ export class RunManager {
         if (!loopId) continue;
         checkLoops.set(loopId, def.id);
         const rec = checkpoint?.steps.find((candidate) => candidate.id === def.id);
-        const legacyExecuted = rec?.retriesUsed === undefined && (rec?.iterations ?? 0) > 0;
-        const used = rec?.retriesUsed ?? (legacyExecuted ? def.onFail.max : 0);
+        // A walk resumed after a restart already carries the exact count; only a record with
+        // neither falls back to the conservative legacy rule.
+        const walked = resume?.loops?.[loopId];
+        const legacyExecuted = rec?.retriesUsed === undefined && walked === undefined && (rec?.iterations ?? 0) > 0;
+        const used = rec?.retriesUsed ?? walked ?? (legacyExecuted ? def.onFail.max : 0);
         loopCounts.set(loopId, used);
         if (rec?.retriesUsed === undefined) {
           this.store.updateStep(runId, def.id, { retriesUsed: used });
