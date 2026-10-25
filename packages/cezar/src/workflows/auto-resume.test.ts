@@ -16,7 +16,7 @@ import {
   MAX_AUTO_RESUMES,
   RunManager,
 } from './run.ts';
-import type { WorkflowDef } from './types.ts';
+import { QUICK_TASK_WORKFLOW, type WorkflowDef } from './types.ts';
 
 const run = promisify(execFile);
 const GIT_ID = ['-c', 'user.name=test', '-c', 'user.email=test@local'];
@@ -57,11 +57,9 @@ describe('a run stopped by a usage limit resumes itself', () => {
   let manager: RunManager | undefined;
   const savedEnv: Record<string, string | undefined> = {};
 
-  const workflow: WorkflowDef = {
-    name: 'quick-task',
-    source: 'built-in',
-    steps: [{ id: 'work', name: 'Work', prompt: '{{task}}' }],
-  };
+  // The real built-in: a queued `quick-task` snapshot is re-resolved against the catalog at
+  // dequeue (#1134), so a hand-written one would be swapped for this anyway.
+  const workflow: WorkflowDef = QUICK_TASK_WORKFLOW;
 
   /** Drive one real run to a terminal status. */
   async function settle(runId: string): Promise<void> {
@@ -394,7 +392,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
       rmSync(eventsPath);
     } else if (transcript === 'malformed') {
       const lines = readFileSync(eventsPath, 'utf8').split('\n');
-      const retryNote = lines.findIndex((line) => line.includes('check failed — retrying from'));
+      const retryNote = lines.findIndex((line) => line.includes('iteration 1/1, back to'));
       expect(retryNote).toBeGreaterThanOrEqual(0);
       lines[retryNote] = '{malformed retry note';
       writeFileSync(eventsPath, lines.join('\n'));
@@ -407,7 +405,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     expect(sessions).toHaveLength(5);
     expect(sessions[3]?.spec.resume).toBe(true);
     // The pending review retained its first session id; rerunning it still starts a fresh one.
-    expect(sessions[4]?.spec.resume).toBeUndefined();
+    expect(sessions[4]?.spec.resume).not.toBe(true);
     expect(store.getRun(record.id)?.steps.find((step) => step.id === 'check')?.retriesUsed).toBe(1);
     const accountingNote = store.readEvents(record.id).some((event) =>
       event.stepId === 'check' &&
@@ -450,7 +448,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     await expect.poll(() => store.getRun(record.id)?.status, { timeout: 20_000 }).toBe('done');
     expect(sessions).toHaveLength(4);
     expect(sessions[2]?.spec.resume).toBe(true);
-    expect(sessions[3]?.spec.resume).toBeUndefined();
+    expect(sessions[3]?.spec.resume).not.toBe(true);
     expect(store.getRun(record.id)?.steps.find((step) => step.id === 'first-check'))
       .toMatchObject({ iterations: 3, retriesUsed: 1 });
     expect(store.getRun(record.id)?.steps.find((step) => step.id === 'second-check'))
@@ -509,7 +507,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
 
     await expect
       .poll(
-        () => store.getRun(record.id)?.steps.find((step) => step.id === 'work')?.status,
+        () => store.getRun(record.id)?.steps.find((step) => step.id === 'task')?.status,
         { timeout: 20_000 },
       )
       .toBe('done');
@@ -657,7 +655,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     await expect
       .poll(
         () =>
-          runs.filter((r) => store.getRun(r.id)?.steps.some((s) => s.id === 'work' && s.status === 'done'))
+          runs.filter((r) => store.getRun(r.id)?.steps.some((s) => s.id === 'task' && s.status === 'done'))
             .length,
         { timeout: 25_000 },
       )
@@ -807,7 +805,7 @@ describe('a run stopped by a usage limit resumes itself', () => {
     // Exactly one probe spawns and meets the limit; the other's continuation never runs.
     const spawned = () =>
       runs.filter((r) =>
-        store.getRun(r.id)?.steps.some((s) => s.id === 'work' && s.iterations > 1 && s.status === 'failed'),
+        store.getRun(r.id)?.steps.some((s) => s.id === 'task' && s.iterations > 1 && s.status === 'failed'),
       ).length;
     await expect.poll(spawned, { timeout: 30_000 }).toBe(1);
     await new Promise((resolve) => setTimeout(resolve, 1_500));
@@ -955,11 +953,12 @@ describe('a run stopped by a usage limit resumes itself', () => {
     // something pumps the manager, so the resume is only real once its step RUNS and settles.
     await expect
       .poll(
-        () => store.getRun(record.id)?.steps.find((step) => step.id === 'work')?.status,
+        () => store.getRun(record.id)?.steps.find((step) => step.id === 'task')?.status,
         { timeout: 20_000 },
       )
       .toBe('done');
-    expect(['done', 'review']).toContain(store.getRun(record.id)?.status);
+    // The run settles a beat after its last step (settle-time checks are async): poll it too.
+    await expect.poll(() => store.getRun(record.id)?.status, { timeout: 5_000 }).toMatch(/^(done|review)$/);
     const events = store.readEvents(record.id);
     expect(events.some((event) => String(event.message ?? '').includes('resuming automatically (1/12)'))).toBe(true);
   }, 40_000);

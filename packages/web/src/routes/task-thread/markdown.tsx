@@ -2,8 +2,10 @@ import { memo, useState, type ComponentProps } from 'react'
 import {
   Streamdown,
   defaultRemarkPlugins,
+  defaultRehypePlugins,
   type CodeHighlighterPlugin,
   type LinkSafetyConfig,
+  type UrlTransform,
 } from 'streamdown'
 
 import { SYN_THEME, highlight, highlightSync, supportedLanguages } from '@/lib/highlighter'
@@ -122,6 +124,42 @@ export function isLocalFilesystemDestination(destination: string): boolean {
   )
 }
 
+interface LinkTreeNode {
+  type: string
+  tagName?: string
+  properties?: Record<string, unknown>
+  children?: LinkTreeNode[]
+}
+
+/** Run after sanitization but before harden: bare paths otherwise become `[blocked]`
+ * before TranscriptLink or urlTransform can inspect them. Paths are text, never URLs
+ * relative to the cockpit page. Leave schemes, network URLs and cockpit routes to
+ * the existing sanitizer and link policy. Document previews keep their own resolver.
+ */
+function rehypeLocalFileLinks() {
+  const walk = (node: LinkTreeNode): void => {
+    const href = node.properties?.href
+    if (
+      node.tagName === 'a' &&
+      typeof href === 'string' &&
+      href.length > 0 &&
+      !/^(?:[a-z][a-z\d+.-]*:|[/#?])/i.test(href)
+    ) {
+      node.tagName = 'span'
+      node.properties = {
+        'data-local-only-link': '',
+        title: `Local file: ${href}. Open it from the task's Files tab.`,
+      }
+    }
+    node.children?.forEach(walk)
+  }
+  return walk
+}
+
+const TRANSCRIPT_REHYPE_PLUGINS = Object.entries(defaultRehypePlugins).flatMap(
+  ([name, plugin]) => name === 'harden' ? [rehypeLocalFileLinks, plugin] : [plugin],
+)
+
 type TranscriptLinkProps = ComponentProps<'a'>
 
 /** A markdown link with the transcript's local-only destination policy applied. */
@@ -192,27 +230,47 @@ const LINK_SAFETY: LinkSafetyConfig = {
  *
  * `breaks` opts into hard line breaks — set it for user-authored text, leave it off for the
  * assistant's (see `remarkHardBreaks`).
+ *
+ * `variant="document"` switches chat-scale typography for reading-scale (`.markdown-document` in
+ * index.css) — the diff's Markdown preview, where the text is a whole file, not a reply.
+ *
+ * `urlTransform` rewrites every link/image URL — the diff's Markdown preview resolves a file's
+ * relative links against its own directory. Pass a stable function: the memo compares by identity.
  */
 export const Markdown = memo(function Markdown({
   children,
   breaks = false,
   inline = false,
+  variant = 'chat',
+  urlTransform,
 }: {
   children: string
   breaks?: boolean
   inline?: boolean
+  variant?: 'chat' | 'document'
+  urlTransform?: UrlTransform
 }) {
   return (
     <Streamdown
-      className={inline ? 'thread-markdown thread-markdown-inline' : 'thread-markdown'}
+      className={
+        inline
+          ? 'thread-markdown thread-markdown-inline'
+          : variant === 'document'
+            ? 'thread-markdown markdown-document'
+            : 'thread-markdown'
+      }
       plugins={{ code: shikiPlugin }}
       shikiTheme={[SYN_THEME, SYN_THEME]}
       remarkPlugins={breaks ? HARD_BREAKS : undefined}
+      rehypePlugins={urlTransform ? undefined : TRANSCRIPT_REHYPE_PLUGINS}
       allowedElements={inline ? INLINE_ELEMENTS : undefined}
       unwrapDisallowed={inline || undefined}
       components={inline ? INLINE_COMPONENTS : MARKDOWN_COMPONENTS}
       urlTransform={transcriptUrlTransform}
       linkSafety={LINK_SAFETY}
+      // Spread, not `urlTransform={undefined}`: an explicit undefined could displace
+      // Streamdown's own sanitizing default for every other caller.
+      {...(urlTransform ? { urlTransform } : {})}
       // Copy + language chip on every fence (the deliverable); download is file-manager noise
       // in a chat, and table export dropdowns are R5-territory chrome.
       controls={{

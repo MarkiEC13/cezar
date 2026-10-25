@@ -8,7 +8,9 @@ import {
   connectProvider,
   continueRun,
   createRun,
+  createRunPr,
   deleteRun,
+  deleteAutomation,
   finishRun,
   getGithub,
   getGithubChecks,
@@ -29,6 +31,8 @@ import {
   getTodos,
   getUiState,
   getWorkspaceConfig,
+  uploadWorkspaceBrandingLogo,
+  deleteWorkspaceBrandingLogo,
   getWorkflows,
   openRunInCli,
   patchRun,
@@ -42,7 +46,7 @@ import {
   startTodo,
   retryProviderAuth,
 } from './client'
-import { setApiScope } from '@open-mercato/cezar-api-client'
+import { setApiBaseUrl, setApiScope } from '@open-mercato/cezar-api-client'
 
 /** The one seam under test: every call must go through `fetch` and nothing else. */
 const fetchMock = vi.fn<typeof fetch>()
@@ -54,6 +58,8 @@ beforeEach(() => {
 afterEach(() => {
   fetchMock.mockReset()
   vi.unstubAllGlobals()
+  setApiBaseUrl('')
+  setApiScope(null)
 })
 
 function reply(body: unknown, init: ResponseInit = {}): void {
@@ -164,6 +170,12 @@ describe('request shapes', () => {
       name: 'getGithub (limit + refresh)',
       call: () => getGithub({ limit: 5, refresh: true }),
       path: '/api/v1/github?limit=5&refresh=1',
+      method: 'GET',
+    },
+    {
+      name: 'getGithub (cursor page)',
+      call: () => getGithub({ limit: 50, issuesCursor: 'i-cursor', prsCursor: 'p-cursor' }),
+      path: '/api/v1/github?limit=50&issuesCursor=i-cursor&prsCursor=p-cursor',
       method: 'GET',
     },
     // `refresh: false` must not become `refresh=0` — the server tests `=== '1'`, but sending a
@@ -331,6 +343,7 @@ describe('request shapes', () => {
     // The one URL this module builds without fetching it (an <img> loads it) — same invariant
     // as every case above: unscoped means exactly the pre-multi-project path.
     expect(runFileRawUrl('run-1', 'shots/final.png')).toBe('/api/v1/runs/run-1/files?path=shots%2Ffinal.png&raw=1')
+    expect(runFileRawUrl('run-1', 'a.png', 'abc123')).toBe('/api/v1/runs/run-1/files?path=a.png&raw=1&rev=abc123')
   })
 
   it('forwards an abort signal to fetch', async () => {
@@ -338,6 +351,48 @@ describe('request shapes', () => {
     const controller = new AbortController()
     await getRuns({ signal: controller.signal })
     expect((fetchMock.mock.calls.at(-1)?.[1] as RequestInit).signal).toBe(controller.signal)
+  })
+})
+
+describe('workspace branding logo client', () => {
+  it('uploads through the configured API base with credentials and resolves the returned asset URL', async () => {
+    setApiBaseUrl('https://api.example.test/gateway')
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ logoUrl: '/api/v1/workspace/branding-logo?v=abc' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }))
+
+    const file = new File(['logo'], 'logo.png', { type: 'image/png' })
+    const logoUrl = await uploadWorkspaceBrandingLogo(file)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.test/gateway/api/v1/workspace/branding-logo')
+    expect(init.credentials).toBe('include')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeInstanceOf(FormData)
+    expect(logoUrl).toBe('https://api.example.test/gateway/api/v1/workspace/branding-logo?v=abc')
+  })
+
+  it('deletes through the configured API base and includes credentials', async () => {
+    setApiBaseUrl('https://api.example.test/gateway')
+    reply({ logoUrl: null })
+    await deleteWorkspaceBrandingLogo()
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.test/gateway/api/v1/workspace/branding-logo')
+    expect(init).toMatchObject({ method: 'DELETE', credentials: 'include' })
+  })
+
+  it('normalizes logo URLs in workspace configuration', async () => {
+    setApiBaseUrl('https://api.example.test/gateway')
+    reply({
+      branding: { name: 'Acme', logoUrl: '/api/v1/workspace/branding-logo?v=abc' },
+      browseRoot: '~/source', projectsDir: '~/projects', skillsAutoUpdate: null,
+      effectiveSkillsAutoUpdate: true,
+      composerDefaults: { autonomous: null, worktree: null, inheritedAutonomous: 'source-dependent', inheritedWorktree: true },
+      resources: { maxParallel: 2, maxMonitoringSessions: 2, idleTimeoutMinutes: 15, monitoringWakeIntervalMinutes: 5, autoResumeOnUsageLimit: true, memoryLimitMb: null, worktreeRetentionDefault: 10 },
+      agentDefaults: {},
+    })
+    const config = await getWorkspaceConfig()
+    expect(config.branding.logoUrl).toBe('https://api.example.test/gateway/api/v1/workspace/branding-logo?v=abc')
   })
 })
 
@@ -379,6 +434,7 @@ describe('project scope (multi-project spec, step 3.1)', () => {
 
 describe('response parsing', () => {
   const workspaceConfig = (resources: Record<string, unknown>) => ({
+    branding: { name: 'cezar', logoUrl: null },
     browseRoot: '~/',
     projectsDir: '~/cezar/projects',
     skillsAutoUpdate: null,
@@ -519,6 +575,49 @@ describe('response parsing', () => {
   })
 })
 
+/** telemetry 9119d21a: the PR POST lost its connection while push + `gh pr create` ran on. */
+describe('createRunPr survives a lost response', () => {
+  const created = () =>
+    new Response(JSON.stringify({ url: 'https://github.com/acme/demo/pull/9', dryRun: false }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    })
+
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('asks once more after a dropped request and returns the PR', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(created())
+    const result = createRunPr('run-1', { draft: false })
+    await vi.runAllTimersAsync()
+    await expect(result).resolves.toEqual({ url: 'https://github.com/acme/demo/pull/9', dryRun: false })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(lastCall().body).toEqual({ draft: false })
+  })
+
+  it('keeps the first error when the server stays unreachable', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const result = createRunPr('run-1').catch((e: unknown) => e)
+    await vi.runAllTimersAsync()
+    const error = (await result) as ApiError
+    expect(error.status).toBe(0)
+    expect(error.message).toBe('cannot reach the cezar server (/api/v1/runs/run-1/pr)')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a refusal the server answered', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'git push failed — denied', manual: 'git merge cez/abc' }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    const error = (await createRunPr('run-1').catch((e: unknown) => e)) as ApiError
+    expect(error.status).toBe(409)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('errors', () => {
   function fail(status: number, body: string, contentType = 'application/json'): void {
     fetchMock.mockResolvedValue(
@@ -536,6 +635,15 @@ describe('errors', () => {
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).status).toBe(409)
     expect((error as ApiError).message).toBe('run is active — cancel it first')
+  })
+
+  it('preserves completed launch links on a cancellation conflict', async () => {
+    fail(409, JSON.stringify({ error: 'This scheduled task already started.', runIds: ['run-a', 'run-b'] }))
+    const error = await deleteAutomation('scheduled-id', 2).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).runIds).toEqual(['run-a', 'run-b'])
+    fail(409, JSON.stringify({ error: 'Invalid response', runIds: [7] }))
+    expect(((await deleteAutomation('scheduled-id', 2).catch((e: unknown) => e)) as ApiError).runIds).toBeUndefined()
   })
 
   it('carries the 409 extras the server pairs with the reason', async () => {

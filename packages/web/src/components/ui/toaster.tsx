@@ -56,6 +56,15 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+/** Observers of `danger` toasts — telemetry reports each one (`lib/telemetry.ts`). A hook rather
+ *  than an import so this primitive stays dependency-free. */
+const dangerListeners = new Set<(message: string) => void>()
+
+export function onDangerToast(listener: (message: string) => void): () => void {
+  dangerListeners.add(listener)
+  return () => dangerListeners.delete(listener)
+}
+
 /** `setTimeout` that keeps its handle cancellable until it actually runs. */
 function schedule(fn: () => void, ms: number): void {
   const handle = setTimeout(() => {
@@ -71,11 +80,14 @@ function schedule(fn: () => void, ms: number): void {
  *
  * `action` appends one link; `durationMs` overrides the five-second default, for the rare toast
  * that asks the reader to decide something rather than telling them what already happened. Both
- * are optional and both default to exactly the previous behavior.
+ * are optional and both default to exactly the previous behavior. `reported` marks a `danger`
+ * toast whose failure the caller already reported with its own fingerprint, so the observers skip it.
+ * `expected` marks one that is an expected, user-actionable outcome — a validation limit, a 409
+ * guarding a precondition, a CLI that is not installed: shown, never reported as an error.
  */
 export function toast(
   message: string,
-  opts: { tone?: ToastTone; action?: ToastAction; durationMs?: number } = {},
+  opts: { tone?: ToastTone; action?: ToastAction; durationMs?: number; reported?: boolean; expected?: boolean } = {},
 ): void {
   const item: ToastItem = {
     id: nextId++,
@@ -86,6 +98,15 @@ export function toast(
   }
   const lifetime = opts.durationMs ?? TOAST_MS
   publish([...items, item])
+  if (item.tone === 'danger' && !opts.reported && !opts.expected) {
+    for (const listener of dangerListeners) {
+      try {
+        listener(message)
+      } catch {
+        // an observer must never stop the toast
+      }
+    }
+  }
   // Two phases, one clock per toast: mark it exiting so the renderer can animate it out, then
   // remove it once the animation has played.
   schedule(() => {
